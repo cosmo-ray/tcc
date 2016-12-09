@@ -125,7 +125,7 @@ ST_FUNC void check_vstack(void)
 /* ------------------------------------------------------------------------- */
 /* vstack debugging aid */
 
-#if 0
+#if 1
 void pv (const char *lbl, int a, int b)
 {
     int i;
@@ -4689,6 +4689,89 @@ ST_FUNC void unary(void)
         next();
         break;
 
+    case TOK_GENERIC:
+    {
+	char buf[256];
+	Sym *controlling_expr = NULL;
+	int has_default = 0;
+	int has_match = 0;
+	CType type_tmp;
+	AttributeDef ad_tmp;
+	int learn = 0;
+	TokenString str;
+	int i;
+
+	tok_str_new(&str);
+	/* pv("tests", 0, 3); */
+	next();
+	skip('(');
+	controlling_expr = sym_find(tok);
+	if (controlling_expr) {
+	    type_to_str(buf, 256, &sym_find(tok)->type, get_tok_str(tok, &tokc));
+	} else {
+	    tcc_error("can't get _Generic controlling expresion type of '%s'",
+		      get_tok_str(tok, &tokc));
+	}
+	next();
+	for (;;) {
+	    int itmp;
+	    /* type */
+	    learn = 0;
+	    skip(',');
+	    if (tok == TOK_DEFAULT) {
+		if (!has_match) {
+		    has_default = 1;
+		    learn = 1;
+		}
+		next();
+	    } else {
+		parse_btype(&type_tmp, &ad_tmp);
+		type_decl(&type_tmp, &ad_tmp, &itmp, TYPE_ABSTRACT);
+		type_to_str(buf, 256, &type_tmp, NULL);
+		if (controlling_expr &&
+		    controlling_expr->type.t == type_tmp.t) {
+		    if (has_default)
+			tok_str_new(&str);
+		    has_match = 1;
+		    learn = 1;
+		}
+	    }
+	    /* : */
+	    /* value */
+	    skip(':');
+	    i = 0;
+	  again:
+	    if (learn)
+		tok_str_add_tok(&str);
+	    next();
+	    if (tok == ',') {
+		++i;
+		/* pv("tests", 0, 3); */
+		continue;
+	    } else if (tok == ')') {
+		break;
+	    } else {
+		goto again;
+	    }
+	}
+	skip(')');
+	if (!has_match && !has_default) {
+	    type_to_str(buf, 256, &controlling_expr->type, NULL);
+	    tcc_error("_Generic sellector of type '%s' is not compatible with any assosiation",
+		      buf);
+	}
+	if (str.str) {
+	    tok_str_add_tok(&str);
+	    tok_str_add(&str, 0);
+	    begin_macro(&str, 2);
+	    next();
+	}
+	/* next(); */
+	unary();
+	if (str.str)
+	    end_macro();
+	break;
+    }
     // special qnan , snan and infinity values
     case TOK___NAN__:
         vpush64(VT_DOUBLE, 0x7ff8000000000000ULL);
@@ -6775,7 +6858,7 @@ static int decl0(int l, int is_for_loop_init, Sym *func_sym)
             if (tok == ';' && l != VT_CMP) {
                 next();
                 continue;
-            }
+            } 
             if (l == VT_CONST &&
                 (tok == TOK_ASM1 || tok == TOK_ASM2 || tok == TOK_ASM3)) {
                 /* global asm block */
