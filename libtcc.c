@@ -1662,6 +1662,11 @@ static void args_parser_listfile(TCCState *s,
     *pargc = s->argc = argc, *pargv = s->argv = argv;
 }
 
+LIBTCCAPI int tcc_args(TCCState *s, int argc, char **argv)
+{
+	return tcc_parse_args(s, &argc, &argv, 0);
+}
+
 PUB_FUNC int tcc_parse_args(TCCState *s, int *pargc, char ***pargv, int optind)
 {
     const TCCOption *popt;
