@@ -3433,7 +3433,7 @@ void builtin_test(void)
     COMPAT_TYPE(char *, signed char *);
     COMPAT_TYPE(char *, char *);
 /* space is needed because tcc preprocessor introduces a space between each token */
-    COMPAT_TYPE(char * *, void *); 
+    COMPAT_TYPE(char * *, void *);
 #endif
     printf("res = %d\n", __builtin_constant_p(1));
     printf("res = %d\n", __builtin_constant_p(1 + 2));

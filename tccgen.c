@@ -4692,6 +4692,7 @@ ST_FUNC void unary(void)
     case TOK_GENERIC:
     {
 	char buf[256];
+	long long controlling_type = -1;
 	Sym *controlling_expr = NULL;
 	int has_default = 0;
 	int has_match = 0;
@@ -4707,8 +4708,42 @@ ST_FUNC void unary(void)
 	skip('(');
 	controlling_expr = sym_find(tok);
 	if (controlling_expr) {
-	    type_to_str(buf, 256, &sym_find(tok)->type, get_tok_str(tok, &tokc));
+	    controlling_type = controlling_expr->type.t;
 	} else {
+	    switch(tok) {
+	    case TOK_CINT:
+		controlling_type = VT_INT;
+		break;
+	    case TOK_CUINT:
+		controlling_type = VT_INT | VT_UNSIGNED;
+	    case TOK_CLLONG:
+		controlling_type = VT_LONG;
+		break;
+	    case TOK_CULLONG:
+		controlling_type = VT_LONG | VT_UNSIGNED;
+		break;
+	    case TOK_LCHAR:
+	    case TOK_CCHAR:
+		controlling_type = VT_BYTE;
+		break;
+	    case TOK_LSTR:
+	    case TOK_STR:
+		controlling_type = VT_PTR;
+		break;
+	    case TOK_CFLOAT:
+		controlling_type = VT_FLOAT;
+		break;
+	    case TOK_CDOUBLE:
+		controlling_type = VT_DOUBLE;
+		break;
+	    case TOK_CLDOUBLE:
+		controlling_type = VT_LDOUBLE;
+		break;
+	    default:
+		break;
+	    }
+	}
+	if (controlling_type == -1) {
 	    tcc_error("can't get _Generic controlling expresion type of '%s'",
 		      get_tok_str(tok, &tokc));
 	}
@@ -4728,8 +4763,10 @@ ST_FUNC void unary(void)
 		parse_btype(&type_tmp, &ad_tmp);
 		type_decl(&type_tmp, &ad_tmp, &itmp, TYPE_ABSTRACT);
 		type_to_str(buf, 256, &type_tmp, NULL);
-		if (controlling_expr &&
-		    controlling_expr->type.t == type_tmp.t) {
+		if (controlling_type == type_tmp.t) {
+		    if (has_match) {
+			tcc_error("type march twice");
+		    }
 		    if (has_default)
 			tok_str_new(&str);
 		    has_match = 1;
@@ -4755,21 +4792,22 @@ ST_FUNC void unary(void)
 	    }
 	}
 	skip(')');
-	if (!has_match && !has_default) {
-	    type_to_str(buf, 256, &controlling_expr->type, NULL);
+	has_match += has_default;
+	if (!has_match) {
+	    if (controlling_expr)
+		type_to_str(buf, 256, &controlling_expr->type, NULL);
+	    else
+		strcpy(buf, "Don't know don't care, I'm drunk");
 	    tcc_error("_Generic sellector of type '%s' is not compatible with any assosiation",
 		      buf);
 	}
-	if (str.str) {
-	    tok_str_add_tok(&str);
-	    tok_str_add(&str, 0);
-	    begin_macro(&str, 2);
-	    next();
-	}
+	tok_str_add_tok(&str);
+	tok_str_add(&str, 0);
+	begin_macro(&str, 2);
+	next();
 	/* next(); */
 	unary();
-	if (str.str)
-	    end_macro();
+	end_macro();
 	break;
     }
     // special qnan , snan and infinity values
