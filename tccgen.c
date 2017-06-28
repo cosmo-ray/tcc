@@ -4691,8 +4691,9 @@ ST_FUNC void unary(void)
 
     case TOK_GENERIC:
     {
-	char buf[256];
-	long long controlling_type = -1;
+	CType *controlling_type;
+	CType tmp_type = {0, NULL};
+	Sym tmp_sym;
 	Sym *controlling_expr = NULL;
 	int has_default = 0;
 	int has_match = 0;
@@ -4703,47 +4704,51 @@ ST_FUNC void unary(void)
 	int i;
 
 	tok_str_new(&str);
-	/* pv("tests", 0, 3); */
 	next();
 	skip('(');
 	controlling_expr = sym_find(tok);
 	if (controlling_expr) {
-	    controlling_type = controlling_expr->type.t;
+	    controlling_type = &controlling_expr->type;
 	} else {
+	    controlling_type = &tmp_type;
+	    tmp_type.ref = NULL;
 	    switch(tok) {
 	    case TOK_CINT:
-		controlling_type = VT_INT;
+		tmp_type.t = VT_INT;
 		break;
 	    case TOK_CUINT:
-		controlling_type = VT_INT | VT_UNSIGNED;
+		tmp_type.t = VT_INT | VT_UNSIGNED;
 	    case TOK_CLLONG:
-		controlling_type = VT_LONG;
+		tmp_type.t = VT_LONG;
 		break;
 	    case TOK_CULLONG:
-		controlling_type = VT_LONG | VT_UNSIGNED;
+		tmp_type.t = VT_LONG | VT_UNSIGNED;
 		break;
 	    case TOK_LCHAR:
 	    case TOK_CCHAR:
-		controlling_type = VT_BYTE;
+		tmp_type.t = VT_BYTE;
 		break;
 	    case TOK_LSTR:
 	    case TOK_STR:
-		controlling_type = VT_PTR;
+		tmp_type.t = VT_PTR;
+		tmp_type.ref = &tmp_sym;
+		tmp_sym.type.t = VT_BYTE | VT_CONSTANT;
 		break;
 	    case TOK_CFLOAT:
-		controlling_type = VT_FLOAT;
+		tmp_type.t = VT_FLOAT;
 		break;
 	    case TOK_CDOUBLE:
-		controlling_type = VT_DOUBLE;
+		tmp_type.t = VT_DOUBLE;
 		break;
 	    case TOK_CLDOUBLE:
-		controlling_type = VT_LDOUBLE;
+		tmp_type.t = VT_LDOUBLE;
 		break;
 	    default:
+		controlling_type = NULL;
 		break;
 	    }
 	}
-	if (controlling_type == -1) {
+	if (!controlling_type) {
 	    tcc_error("can't get _Generic controlling expresion type of '%s'",
 		      get_tok_str(tok, &tokc));
 	}
@@ -4762,8 +4767,7 @@ ST_FUNC void unary(void)
 	    } else {
 		parse_btype(&type_tmp, &ad_tmp);
 		type_decl(&type_tmp, &ad_tmp, &itmp, TYPE_ABSTRACT);
-		type_to_str(buf, 256, &type_tmp, NULL);
-		if (controlling_type == type_tmp.t) {
+		if (compare_types(controlling_type, &type_tmp, 0)) {
 		    if (has_match) {
 			tcc_error("type march twice");
 		    }
@@ -4794,6 +4798,8 @@ ST_FUNC void unary(void)
 	skip(')');
 	has_match += has_default;
 	if (!has_match) {
+	    char buf[256];
+
 	    if (controlling_expr)
 		type_to_str(buf, 256, &controlling_expr->type, NULL);
 	    else
