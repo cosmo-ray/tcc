@@ -300,6 +300,11 @@ extern long double strtold (const char *__nptr, char **__endptr);
 
 /* -------------------------------------------- */
 
+/* We give TCCSym to the user, but tcc use Sym */
+#ifndef TCCSym
+# define TCCSym Sym
+#endif
+
 #include "libtcc.h"
 #include "elf.h"
 #include "stab.h"
@@ -416,6 +421,12 @@ typedef unsigned short nwchar_t;
 typedef int nwchar_t;
 #endif
 
+typedef struct UserTokList {
+  const char *tok_name;
+  TCCUserCallback callback;
+  struct UserTokList *next;
+} UserTokList;
+
 typedef struct CString {
     int size; /* size in bytes */
     void *data; /* either 'char *' or 'nwchar_t *' */
@@ -480,6 +491,8 @@ struct FuncAttr {
     xxxx        : 2,
     func_args   : 8; /* PE __stdcall args */
 };
+
+typedef struct Sym TCCSym;
 
 /* symbol management */
 typedef struct Sym {
@@ -1172,6 +1185,7 @@ ST_INLN Sym *struct_find(int v);
 ST_INLN Sym *sym_find(int v);
 ST_FUNC Sym *global_identifier_push(int v, int t, int c);
 
+ST_FUNC void tcc_include_string(const char *str);
 ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen);
 ST_FUNC int tcc_open(TCCState *s1, const char *filename);
 ST_FUNC void tcc_close(void);
@@ -1328,6 +1342,8 @@ ST_DATA int func_vc;
 ST_DATA int last_line_num, last_ind, func_ind; /* debug last line number and pc */
 ST_DATA const char *funcname;
 ST_DATA int g_debug;
+
+ST_DATA UserTokList *user_tok_lst;
 
 ST_FUNC void tcc_debug_start(TCCState *s1);
 ST_FUNC void tcc_debug_end(TCCState *s1);
