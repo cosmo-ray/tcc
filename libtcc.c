@@ -568,7 +568,8 @@ PUB_FUNC void tcc_warning(const char *fmt, ...)
 /********************************************************/
 /* I/O layer */
 
-ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen)
+ST_FUNC void tcc_open_bf_internal(int *ifdef_stack_ptr, const char *filename,
+				  int initlen)
 {
     BufferedFile *bf;
     int buflen = initlen ? initlen : IO_BUF_SIZE;
@@ -580,11 +581,30 @@ ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen)
     pstrcpy(bf->filename, sizeof(bf->filename), filename);
     bf->true_filename = bf->filename;
     bf->line_num = 1;
-    bf->ifdef_stack_ptr = s1->ifdef_stack_ptr;
+    bf->ifdef_stack_ptr = ifdef_stack_ptr;
     bf->fd = -1;
     bf->prev = file;
     file = bf;
     tok_flags = TOK_FLAG_BOL | TOK_FLAG_BOF;
+}
+
+ST_FUNC void tcc_include_string(const char *str)
+{
+    int buflen = strlen(str);
+    /* TokenString *tokstr = NULL; */
+
+    if (!buflen)
+      return;
+    tcc_open_bf_internal(tcc_state->ifdef_stack_ptr,
+			 "<included_string>", buflen);
+    file->fd = -2;
+    memcpy(file->buffer, str, buflen);
+    ch = file->buf_ptr[0];
+}
+
+ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen)
+{
+  return tcc_open_bf_internal(s1->ifdef_stack_ptr, filename, initlen);
 }
 
 ST_FUNC void tcc_close(void)
@@ -2046,4 +2066,97 @@ PUB_FUNC void tcc_print_stats(TCCState *s, unsigned total_time)
 #ifdef MEM_DEBUG
     fprintf(stderr, "* %d bytes memory used\n", mem_max_size);
 #endif
+}
+
+LIBTCCAPI void tcc_add_user_token(TCCState *s, const char *tok_name,
+				  TCCUserCallback callback)
+{
+    UserTokList *to_insert = tcc_malloc(sizeof(UserTokList));
+
+    to_insert->callback = callback;
+    to_insert->tok_name = tcc_strdup(tok_name);
+    to_insert->next = user_tok_lst;
+    user_tok_lst = to_insert;
+}
+
+LIBTCCAPI void tcc_next(void)
+{
+    next();
+}
+
+LIBTCCAPI const char *tcc_tok_str(void)
+{
+    return get_tok_str(tok, &tokc);
+}
+
+LIBTCCAPI struct Sym *tcc_sym(void)
+{
+    return sym_find(tok);
+}
+
+LIBTCCAPI int tcc_sym_is_function(struct Sym *s)
+{
+    return (s->type.t & VT_BTYPE) == VT_FUNC;
+}
+
+LIBTCCAPI int tcc_sym_is_float(struct Sym *s)
+{
+    return is_float(s->type.t);
+}
+
+LIBTCCAPI int tcc_sym_is_cstr(struct Sym *s)
+{
+    return (s->type.t & VT_BTYPE) == VT_PTR &&
+	(s->type.t & VT_BTYPE) == VT_BYTE;
+}
+
+LIBTCCAPI int tcc_sym_is_decimal(struct Sym *s)
+{
+    int t = s->type.t & VT_BTYPE;
+    return t == VT_INT || t == VT_SHORT || t == VT_LLONG || t == VT_QLONG;
+}
+
+LIBTCCAPI int tcc_tok(void)
+{
+    return tok;
+}
+
+LIBTCCAPI int tcc_tok_is_str(int t)
+{
+    return t == TOK_STR;
+}
+
+LIBTCCAPI int tcc_tok_is_decimal(int t)
+{
+    switch (t) {
+    case TOK_CINT:
+    case TOK_CUINT:
+    case TOK_CLONG:
+    case TOK_CULONG:
+    case TOK_CLLONG:
+    case TOK_CULLONG:
+	return 1;
+    }
+    return 0;
+}
+
+LIBTCCAPI int tcc_tok_is_float(int t)
+{
+    switch (t) {
+    case TOK_CFLOAT:
+    case TOK_CDOUBLE:
+    case TOK_CLDOUBLE:
+	return 1;
+    }
+    return 0;
+}
+
+LIBTCCAPI int tcc_tok_is_ident(int t)
+{
+    return t >= TOK_UIDENT;
+}
+
+LIBTCCAPI int tcc_tok_is_number(int t)
+{
+    return tcc_tok_is_float(t) || tcc_tok_is_decimal(t);
 }

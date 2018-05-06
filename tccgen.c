@@ -66,6 +66,8 @@ ST_DATA int g_debug;
 
 ST_DATA CType char_pointer_type, func_old_type, int_type, size_type, ptrdiff_type;
 
+ST_DATA UserTokList *user_tok_lst;
+
 ST_DATA struct switch_t {
     struct case_t {
         int64_t v1, v2;
@@ -2834,7 +2836,7 @@ static void vla_sp_restore_root(void) {
 }
 
 /* return the pointed type of t */
-static inline CType *pointed_type(CType *type)
+ST_FUNC CType *pointed_type(CType *type)
 {
     return &type->ref->type;
 }
@@ -5954,6 +5956,45 @@ static int is_label(void)
     }
 }
 
+static void call_user_callback(TCCUserCallback uc, int *bsym, int *csym)
+{
+    TCCUserAction ua = {};
+    int ret = uc(&ua);
+    if (ret == TCCErrorOp) {
+	tcc_error("%s\n", ua.error ? ua.error :
+		  "internal error: unknow error in user callback");
+	goto out;
+    }
+    tcc_include_string(ua.include_string);
+    next();
+    printf("[]%s\n", get_tok_str(tok, &tokc));
+    /* block(bsym, csym, 0); */
+  out:
+    /*
+     * include_string and error are the same type
+     * so free error will free include_string
+     */
+    if (ua.should_free) {
+	printf("free %s\n", ua.error);
+	tcc_free(ua.error);
+    }
+    return;
+}
+
+static TCCUserCallback is_user_tok(void)
+{
+    const char *str;
+
+    if (tok < TOK_UIDENT)
+        return 0;
+    str = get_tok_str(tok, &tokc);
+    for (UserTokList *lst = user_tok_lst; lst; lst = lst->next) {
+	if (!strcmp(str, lst->tok_name))
+	    return lst->callback;
+    }
+    return NULL;
+}
+
 #ifndef TCC_TARGET_ARM64
 static void gfunc_return(CType *func_type)
 {
@@ -6091,6 +6132,7 @@ static void block(int *bsym, int *csym, int is_expr)
 {
     int a, b, c, d, cond;
     Sym *s;
+    TCCUserCallback user_callback;
 
     /* generate line number info */
     if (tcc_state->do_debug)
@@ -6450,6 +6492,8 @@ static void block(int *bsym, int *csym, int is_expr)
         skip(';');
     } else if (tok == TOK_ASM1 || tok == TOK_ASM2 || tok == TOK_ASM3) {
         asm_instr();
+    } else if ((user_callback = is_user_tok()) != NULL) {
+	call_user_callback(user_callback, bsym, csym);
     } else {
         b = is_label();
         if (b) {
