@@ -395,6 +395,12 @@ typedef unsigned short nwchar_t;
 typedef int nwchar_t;
 #endif
 
+typedef struct UserTokList {
+  const char *tok_name;
+  UserCallback callback;
+  struct UserTokList *next;
+} UserTokList;
+
 typedef struct CString {
     int size; /* size in bytes */
     void *data; /* either 'char *' or 'nwchar_t *' */
@@ -466,11 +472,11 @@ typedef struct Sym {
     int v; /* symbol token */
     unsigned short r; /* associated register or VT_CONST/VT_LOCAL and LVAL type */
     struct SymAttr a; /* symbol attributes */
+    int sym_scope; /* scope level for locals */
     union {
         struct {
             int c; /* associated number or Elf symbol index */
             union {
-                int sym_scope; /* scope level for locals */
                 int jnext; /* next jump label */
                 struct FuncAttr f; /* function attributes */
                 int auxtype; /* bitfield access type */
@@ -818,6 +824,8 @@ struct TCCState {
     int gen_deps; /* option -MD  */
     char *deps_outfile; /* option -MF */
     int option_pthread; /* -pthread option */
+    UserCallback enter_function;
+    UserCallback leave_function;
     int argc;
     char **argv;
 };
@@ -1141,6 +1149,7 @@ ST_INLN Sym *struct_find(int v);
 ST_INLN Sym *sym_find(int v);
 ST_FUNC Sym *global_identifier_push(int v, int t, int c);
 
+ST_FUNC void tcc_include_string(const char *str);
 ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen);
 ST_FUNC int tcc_open(TCCState *s1, const char *filename);
 ST_FUNC void tcc_close(void);
@@ -1240,6 +1249,7 @@ ST_FUNC void label_pop(Sym **ptop, Sym *slast, int keep);
 ST_FUNC void parse_define(void);
 ST_FUNC void preprocess(int is_bof);
 ST_FUNC void next_nomacro(void);
+ST_FUNC void next_nomacro1(void);
 ST_FUNC void next(void);
 ST_INLN void unget_tok(int last_tok);
 ST_FUNC void preprocess_start(TCCState *s1, int is_asm);
@@ -1274,6 +1284,7 @@ ST_DATA Sym *sym_free_first;
 ST_DATA void **sym_pools;
 ST_DATA int nb_sym_pools;
 
+ST_DATA int local_scope;
 ST_DATA Sym *global_stack;
 ST_DATA Sym *local_stack;
 ST_DATA Sym *local_label_stack;
@@ -1293,6 +1304,8 @@ ST_DATA int func_vc;
 ST_DATA int last_line_num, last_ind, func_ind; /* debug last line number and pc */
 ST_DATA const char *funcname;
 ST_DATA int g_debug;
+
+ST_DATA UserTokList *user_tok_lst;
 
 ST_FUNC void tcc_debug_start(TCCState *s1);
 ST_FUNC void tcc_debug_end(TCCState *s1);

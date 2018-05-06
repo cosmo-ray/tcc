@@ -13,6 +13,9 @@ struct TCCState;
 
 typedef struct TCCState TCCState;
 
+typedef char *(*UserCallback)(const char *function, int *should_free);
+
+
 /* create a new TCC compilation context */
 LIBTCCAPI TCCState *tcc_new(void);
 
@@ -92,6 +95,16 @@ LIBTCCAPI int tcc_relocate(TCCState *s1, void *ptr);
 
 /* return symbol value or NULL if not found */
 LIBTCCAPI void *tcc_get_symbol(TCCState *s, const char *name);
+
+/* external scripting */
+LIBTCCAPI void tcc_add_enter_function_callback(TCCState *s,
+					       UserCallback enter_function);
+
+LIBTCCAPI void tcc_add_leave_function_callback(TCCState *s,
+					       UserCallback leave_function);
+
+LIBTCCAPI void tcc_add_user_token(TCCState *s, const char *tok_name,
+				  UserCallback callback);
 
 #ifdef __cplusplus
 }

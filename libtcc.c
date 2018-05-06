@@ -568,7 +568,8 @@ PUB_FUNC void tcc_warning(const char *fmt, ...)
 /********************************************************/
 /* I/O layer */
 
-ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen)
+ST_FUNC void tcc_open_bf_internal(int *ifdef_stack_ptr, const char *filename,
+				  int initlen)
 {
     BufferedFile *bf;
     int buflen = initlen ? initlen : IO_BUF_SIZE;
@@ -580,11 +581,38 @@ ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen)
     pstrcpy(bf->filename, sizeof(bf->filename), filename);
     bf->true_filename = bf->filename;
     bf->line_num = 1;
-    bf->ifdef_stack_ptr = s1->ifdef_stack_ptr;
+    bf->ifdef_stack_ptr = ifdef_stack_ptr;
     bf->fd = -1;
     bf->prev = file;
     file = bf;
     tok_flags = TOK_FLAG_BOL | TOK_FLAG_BOF;
+}
+
+ST_FUNC void tcc_include_string(const char *str)
+{
+    int buflen = strlen(str);
+    TokenString *tokstr = NULL;
+
+    if (!buflen)
+      return;
+    tcc_open_bf_internal(tcc_state->ifdef_stack_ptr, "<included_string>", buflen);
+    memcpy(file->buffer, str, buflen);
+    //tok_flags = 0;
+    tokstr = tok_str_alloc();
+    for (;;) {
+      next_nomacro1();
+      if (tok == CH_EOB || tok == CH_EOF) {
+	break;
+      }
+      tok_str_add_tok(tokstr);
+    }
+    tcc_close();
+    begin_macro(tokstr, 1);
+}
+
+ST_FUNC void tcc_open_bf(TCCState *s1, const char *filename, int initlen)
+{
+  return tcc_open_bf_internal(s1->ifdef_stack_ptr, filename, initlen);
 }
 
 ST_FUNC void tcc_close(void)
@@ -1978,4 +2006,27 @@ PUB_FUNC void tcc_print_stats(TCCState *s, unsigned total_time)
 #ifdef MEM_DEBUG
     fprintf(stderr, "* %d bytes memory used\n", mem_max_size);
 #endif
+}
+
+LIBTCCAPI void tcc_add_enter_function_callback(TCCState *s,
+					       UserCallback enter_f)
+{
+  s->enter_function = enter_f;
+}
+
+LIBTCCAPI void tcc_add_leave_function_callback(TCCState *s,
+					       UserCallback leave_f)
+{
+  s->leave_function = leave_f;
+}
+
+LIBTCCAPI void tcc_add_user_token(TCCState *s, const char *tok_name,
+				  UserCallback callback)
+{
+  UserTokList *to_insert = tcc_malloc(sizeof(UserTokList));
+
+  to_insert->callback = callback;
+  to_insert->tok_name = tcc_strdup(tok_name);
+  to_insert->next = user_tok_lst;
+  user_tok_lst = to_insert;
 }

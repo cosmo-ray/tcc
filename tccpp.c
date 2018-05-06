@@ -1365,8 +1365,10 @@ ST_FUNC Sym *label_find(int v)
 ST_FUNC Sym *label_push(Sym **ptop, int v, int flags)
 {
     Sym *s, **ps;
+    printf("push lab\n", local_scope);
     s = sym_push2(ptop, v, 0, 0);
     s->r = flags;
+    s->sym_scope = local_scope;
     ps = &table_ident[v - TOK_IDENT]->sym_label;
     if (ptop == &global_label_stack) {
         /* modify the top most local identifier, so that
@@ -1384,6 +1386,8 @@ ST_FUNC Sym *label_push(Sym **ptop, int v, int flags)
 ST_FUNC void label_pop(Sym **ptop, Sym *slast, int keep)
 {
     Sym *s, *s1;
+
+    printf("pop lab\n");
     for(s = *ptop; s != slast; s = s1) {
         s1 = s->prev;
         if (s->r == LABEL_DECLARED) {
@@ -1392,7 +1396,9 @@ ST_FUNC void label_pop(Sym **ptop, Sym *slast, int keep)
                 tcc_error("label '%s' used but not defined",
                       get_tok_str(s->v, NULL));
         } else {
+	    printf("wololo\n");
             if (s->c) {
+		printf("ayoyoyo\n");
                 /* define corresponding symbol. A size of
                    1 is put. */
                 put_extern_sym(s, cur_text_section, s->jnext, 1);
@@ -2558,7 +2564,7 @@ static void parse_number(const char *p)
         break;
 
 /* return next token without macro substitution */
-static inline void next_nomacro1(void)
+ST_FUNC void next_nomacro1(void)
 {
     int t, c, is_long, len;
     TokenSym *ts;

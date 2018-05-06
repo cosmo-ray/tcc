@@ -39,7 +39,7 @@ ST_DATA Sym *local_stack;
 ST_DATA Sym *define_stack;
 ST_DATA Sym *global_label_stack;
 ST_DATA Sym *local_label_stack;
-static int local_scope;
+ST_DATA int local_scope;
 static int in_sizeof;
 static int section_sym;
 
@@ -62,6 +62,8 @@ ST_DATA const char *funcname;
 ST_DATA int g_debug;
 
 ST_DATA CType char_pointer_type, func_old_type, int_type, size_type, ptrdiff_type;
+
+ST_DATA UserTokList *user_tok_lst;
 
 ST_DATA struct switch_t {
     struct case_t {
@@ -5740,6 +5742,20 @@ static int is_label(void)
     }
 }
 
+static UserCallback is_user_tok(void)
+{
+    const char *str;
+
+    if (tok < TOK_UIDENT)
+        return 0;
+    str = get_tok_str(tok, &tokc);
+    for (UserTokList *lst = user_tok_lst; lst; lst = lst->next) {
+	if (!strcmp(str, lst->tok_name))
+	    return lst->callback;
+    }
+    return NULL;
+}
+
 #ifndef TCC_TARGET_ARM64
 static void gfunc_return(CType *func_type)
 {
@@ -5873,11 +5889,30 @@ static void gcase(struct case_t **base, int len, int *bsym)
     }
 }
 
+static int try_call_callback(UserCallback func)
+{
+  int should_free = 0;
+  int block_name_len = strlen(funcname) + 1 + 15;
+  char *block_name = tcc_malloc(block_name_len);
+  char *str;
+
+  if (!func)
+    return 0;
+  snprintf(block_name, block_name_len, "%s-%d", funcname, local_scope);
+  str = func(block_name, &should_free);
+  tcc_include_string(str);
+  if (should_free)
+    tcc_free(str);
+  tcc_free(block_name);
+  return 1;
+}
+
 static void block(int *bsym, int *csym, int is_expr)
 {
     int a, b, c, d, cond;
     Sym *s;
 
+    printf("in block: %s\n", get_tok_str(tok, NULL));
     /* generate line number info */
     if (tcc_state->do_debug)
         tcc_debug_line(tcc_state);
@@ -5940,13 +5975,16 @@ static void block(int *bsym, int *csym, int is_expr)
     } else if (tok == '{') {
         Sym *llabel;
         int block_vla_sp_loc = vla_sp_loc, saved_vlas_in_scope = vlas_in_scope;
+	int is_brace_consumed = 0;
 
+        ++local_scope;
+	if (local_scope == 1)
+	    try_call_callback(tcc_state->enter_function);
         next();
         /* record local declaration stack position */
         s = local_stack;
         llabel = local_label_stack;
-        ++local_scope;
-        
+
         /* handle local labels declarations */
         if (tok == TOK_LABEL) {
             next();
@@ -5971,9 +6009,18 @@ static void block(int *bsym, int *csym, int is_expr)
             if (tok != '}') {
                 if (is_expr)
                     vpop();
+		/* printf("before the block!: %s\n", get_tok_str(tok, NULL)); */
                 block(bsym, csym, is_expr);
             }
         }
+	if (local_scope == 1) {
+	    if (try_call_callback(tcc_state->leave_function)) {
+		next();
+		block(bsym, csym, is_expr);
+		is_brace_consumed = 1;
+	    }
+	}
+
         /* pop locally defined labels */
         label_pop(&local_label_stack, llabel, is_expr);
         /* pop locally defined symbols */
@@ -5992,11 +6039,17 @@ static void block(int *bsym, int *csym, int is_expr)
             vla_sp_loc = saved_vlas_in_scope ? block_vla_sp_loc : vla_sp_root_loc;
             vla_sp_restore();
         }
+	printf("outside new block\n");
         vlas_in_scope = saved_vlas_in_scope;
-        
-        next();
+        if (!is_brace_consumed)
+	  next();
     } else if (tok == TOK_RETURN) {
-        next();
+	if (try_call_callback(tcc_state->leave_function)) {
+	    next();
+	    block(bsym, csym, is_expr);
+	} else {
+	    next();
+	}
         if (tok != ';') {
             gexpr();
             gen_assign_cast(&func_vt);
@@ -6180,7 +6233,7 @@ static void block(int *bsym, int *csym, int is_expr)
                     s->r = LABEL_FORWARD;
             }
             vla_sp_restore_root();
-	    if (s->r & LABEL_FORWARD)
+            if (s->r & LABEL_FORWARD)
                 s->jnext = gjmp(s->jnext);
             else
                 gjmp_addr(s->jnext);
@@ -6191,9 +6244,15 @@ static void block(int *bsym, int *csym, int is_expr)
         skip(';');
     } else if (tok == TOK_ASM1 || tok == TOK_ASM2 || tok == TOK_ASM3) {
         asm_instr();
-    } else {
+    }else {
+	UserCallback user_callback = is_user_tok();
+
         b = is_label();
-        if (b) {
+	if (user_callback) {
+	    try_call_callback(user_callback);
+	    next();
+	    block(bsym, csym, 0);
+        } else if (b) {
             /* label case */
 	    next();
             s = label_find(b);
@@ -6202,6 +6261,7 @@ static void block(int *bsym, int *csym, int is_expr)
                     tcc_error("duplicate label '%s'", get_tok_str(s->v, NULL));
                 gsym(s->jnext);
                 s->r = LABEL_DEFINED;
+		s->sym_scope = local_scope;
             } else {
                 s = label_push(&global_label_stack, b, LABEL_DEFINED);
             }
@@ -7251,7 +7311,7 @@ static int decl0(int l, int is_for_loop_init, Sym *func_sym)
 		    if (sym->type.t == VT_VOID)
 		        sym->type = int_type;
 		}
-                
+
                 /* XXX: cannot do better now: convert extern line to static inline */
                 if ((type.t & (VT_EXTERN | VT_INLINE)) == (VT_EXTERN | VT_INLINE))
                     type.t = (type.t & ~VT_EXTERN) | VT_STATIC;
@@ -7264,11 +7324,11 @@ static int decl0(int l, int is_for_loop_init, Sym *func_sym)
                 /* static inline functions are just recorded as a kind
                    of macro. Their code will be emitted at the end of
                    the compilation unit only if they are used */
-                if ((type.t & (VT_INLINE | VT_STATIC)) == 
+                if ((type.t & (VT_INLINE | VT_STATIC)) ==
                     (VT_INLINE | VT_STATIC)) {
                     struct InlineFunc *fn;
                     const char *filename;
-                           
+
                     filename = file ? file->filename : "";
                     fn = tcc_malloc(sizeof *fn + strlen(filename));
                     strcpy(fn->filename, filename);
