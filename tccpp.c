@@ -1116,6 +1116,7 @@ ST_FUNC void begin_macro(TokenString *str, int alloc)
 ST_FUNC void end_macro(void)
 {
     TokenString *str = macro_stack;
+
     macro_stack = str->prev;
     macro_ptr = str->prev_ptr;
     file->line_num = str->save_line_num;
@@ -1126,7 +1127,7 @@ ST_FUNC void end_macro(void)
     }
 }
 
-static void tok_str_add2(TokenString *s, int t, CValue *cv)
+ST_FUNC void tok_str_add2(TokenString *s, int t, CValue *cv)
 {
     int len, *str;
 
@@ -1213,8 +1214,7 @@ ST_FUNC void tok_str_add_tok(TokenString *s)
     tok_str_add2(s, tok, &tokc);
 }
 
-/* get a token from an integer array and increment pointer
-   accordingly. we code it as a macro to avoid pointer aliasing. */
+/* get a token from an integer array and increment pointer. */
 static inline void TOK_GET(int *t, const int **pp, CValue *cv)
 {
     const int *p = *pp;
@@ -1365,8 +1365,10 @@ ST_FUNC Sym *label_find(int v)
 ST_FUNC Sym *label_push(Sym **ptop, int v, int flags)
 {
     Sym *s, **ps;
+
     s = sym_push2(ptop, v, 0, 0);
     s->r = flags;
+    s->scope = scope_tracker;
     ps = &table_ident[v - TOK_IDENT]->sym_label;
     if (ptop == &global_label_stack) {
         /* modify the top most local identifier, so that
