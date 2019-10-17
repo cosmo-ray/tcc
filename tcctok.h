@@ -127,6 +127,8 @@
      DEF(TOK_REGPARM2, "__regparm__")
      DEF(TOK_CLEANUP1, "cleanup")
      DEF(TOK_CLEANUP2, "__cleanup__")
+     DEF(TOK_SELF1, "self")
+     DEF(TOK_SELF2, "__slef__")
 
      DEF(TOK_MODE, "__mode__")
      DEF(TOK_MODE_QI, "__QI__")
