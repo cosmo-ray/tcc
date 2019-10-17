@@ -503,7 +503,8 @@ struct SymAttr {
     nodecorate  : 1,
     dllimport   : 1,
     addrtaken   : 1,
-    xxxx        : 3; /* not used */
+    self        : 1,
+    unused      : 2;
 };
 
 /* function attributes or temporary attributes for parsing */
@@ -1002,6 +1003,10 @@ struct filespec {
 #define VT_STATIC  0x00002000  /* static variable */
 #define VT_TYPEDEF 0x00004000  /* typedef definition */
 #define VT_INLINE  0x00008000  /* inline definition */
+
+/* object ? */
+#define VT_SELF  0x00010000  /* inline definition */
+
 /* currently unused: 0x000[1248]0000  */
 
 #define VT_STRUCT_SHIFT 20     /* shift for bitfield shift values (32 - 2*6) */

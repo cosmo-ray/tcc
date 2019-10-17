@@ -209,6 +209,9 @@ ST_FUNC void asm_global_instr(void)
     tcc_error("inline asm() not supported");
 }
 #endif
+static CType *self_struct_type;
+static SValue self_ptr_sval;
+
 
 /* ------------------------------------------------------------------------- */
 static void gen_cast(CType *type);
@@ -3070,6 +3073,10 @@ static int compare_types(CType *type1, CType *type2, int unqualified)
 
     t1 = type1->t & VT_TYPE;
     t2 = type2->t & VT_TYPE;
+
+    t1 &= ~VT_SELF;
+    t2 &= ~VT_SELF;
+
     if (unqualified) {
         /* strip qualifiers before comparing */
         t1 &= ~(VT_CONSTANT | VT_VOLATILE);
@@ -3824,6 +3831,7 @@ static void verify_assign_cast(CType *dt)
             type2 = st; /* a function is implicitly a function pointer */
         else
             goto error;
+
         if (is_compatible_types(type1, type2))
             break;
         for (qualwarn = lvl = 0;; ++lvl) {
@@ -3837,6 +3845,7 @@ static void verify_assign_cast(CType *dt)
             type1 = pointed_type(type1);
             type2 = pointed_type(type2);
         }
+
         if (!is_compatible_unqualified_types(type1, type2)) {
             if ((dbt == VT_VOID || sbt == VT_VOID) && lvl == 0) {
                 /* void * can match anything */
@@ -4124,6 +4133,10 @@ redo:
         t = tok;
         next();
         switch(t) {
+	case TOK_SELF1:
+	case TOK_SELF2:
+	    ad->a.self = 1;
+	    break;
 	case TOK_CLEANUP1:
 	case TOK_CLEANUP2:
 	{
@@ -4307,7 +4320,7 @@ redo:
     goto redo;
 }
 
-static Sym * find_field (CType *type, int v, int *cumofs)
+static Sym * find_field(CType *type, int v, int *cumofs)
 {
     Sym *s = type->ref;
     v |= SYM_FIELD;
@@ -4680,6 +4693,9 @@ do_decl:
 		    skip(';');
 		    continue;
 		}
+		if (ad1.a.self) {
+		    self_struct_type = type;
+		}
                 while (1) {
 		    if (flexible)
 		        tcc_error("flexible array member '%s' not at the end of struct",
@@ -4690,7 +4706,7 @@ do_decl:
                     if (tok != ':') {
 			if (tok != ';')
                             type_decl(&type1, &ad1, &v, TYPE_DIRECT);
-                        if (v == 0) {
+			                        if (v == 0) {
                     	    if ((type1.t & VT_BTYPE) != VT_STRUCT)
                         	expect("identifier");
                     	    else {
@@ -4991,7 +5007,7 @@ static int parse_btype(CType *type, AttributeDef *ad)
         case TOK_ATTRIBUTE1:
         case TOK_ATTRIBUTE2:
             parse_attribute(ad);
-            if (ad->attr_mode) {
+	    if (ad->attr_mode) {
                 u = ad->attr_mode -1;
                 t = (t & ~(VT_BTYPE|VT_LONG)) | u;
             }
@@ -5114,6 +5130,14 @@ static int post_type(CType *type, AttributeDef *ad, int storage, int td)
         first = NULL;
         plast = &first;
         arg_size = 0;
+	if (ad->a.self) {
+	    CType st = *self_struct_type;
+	    mk_pointer(&st);
+	    arg_size += (type_size(&st, &align) + PTR_SIZE - 1) / PTR_SIZE;
+	    s = sym_push(SYM_FIELD, &st, 0, 0);
+	    *plast = s;
+	    plast = &s->next;
+	}
         if (l) {
             for(;;) {
                 /* read param name and compute offset */
@@ -6031,7 +6055,8 @@ special_math_val:
         } else if (tok == '.' || tok == TOK_ARROW || tok == TOK_CDOUBLE) {
             int qualifiers, cumofs = 0;
             /* field */ 
-            if (tok == TOK_ARROW) 
+
+	    if (tok == TOK_ARROW) 
                 indir();
             qualifiers = vtop->type.t & (VT_CONSTANT | VT_VOLATILE);
             test_lvalue();
@@ -6045,6 +6070,8 @@ special_math_val:
             if (tok == TOK_CINT || tok == TOK_CUINT)
                 expect("field name");
 	    s = find_field(&vtop->type, tok, &cumofs);
+	    if (s->type.t & VT_SELF)
+		self_ptr_sval = *vtop;
             if (!s)
                 tcc_error("field not found: %s",  get_tok_str(tok & ~SYM_FIELD, &tokc));
             /* add field offset to pointer */
@@ -6074,8 +6101,9 @@ special_math_val:
             SValue ret;
             Sym *sa;
             int nb_args, ret_nregs, ret_align, regsize, variadic;
+	    int is_self = (vtop->type.t & VT_SELF);
 
-            /* function call  */
+	    /* function call  */
             if ((vtop->type.t & VT_BTYPE) != VT_FUNC) {
                 /* pointer test (no array accepted) */
                 if ((vtop->type.t & (VT_BTYPE | VT_ARRAY)) == VT_PTR) {
@@ -6134,6 +6162,18 @@ special_math_val:
                 ret.c.i = 0;
                 PUT_R_RET(&ret, ret.type.t);
             }
+	    if (is_self) {
+		SValue *self = &self_ptr_sval;
+		vset(&self->type, self->r, self->c.i);
+		/* vtop->sym = self->type.ref; */
+		mk_pointer(&vtop->type);
+		gaddrof();
+
+		gfunc_param_typed(s, sa);
+		nb_args++;
+		if (sa)
+                        sa = sa->next;
+	    }
             if (tok != ')') {
                 for(;;) {
                     expr_eq();
@@ -7422,8 +7462,9 @@ static int decl_designator(CType *type, Section *sec, unsigned long c,
 	    f = find_field(type, l, &cumofs);
             if (!f)
                 expect("field");
-            if (cur_field)
+            if (cur_field) {
                 *cur_field = f;
+	    }
 	    type = &f->type;
             c += cumofs + f->c;
         }
@@ -7450,6 +7491,9 @@ static int decl_designator(CType *type, Section *sec, unsigned long c,
             if (!f)
                 tcc_error("too many field init");
 	    type = &f->type;
+	    if (f->a.self) {
+		type->t |= VT_SELF;
+	    }
             c += f->c;
         }
     }

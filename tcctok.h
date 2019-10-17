@@ -134,6 +134,8 @@
      DEF(TOK_DESTRUCTOR2, "__destructor__")
      DEF(TOK_ALWAYS_INLINE1, "always_inline")
      DEF(TOK_ALWAYS_INLINE2, "__always_inline__")
+     DEF(TOK_SELF1, "self")
+     DEF(TOK_SELF2, "__slef__")
 
      DEF(TOK_MODE, "__mode__")
      DEF(TOK_MODE_QI, "__QI__")
