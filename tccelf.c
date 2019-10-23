@@ -808,11 +808,11 @@ ST_FUNC void relocate_syms(TCCState *s1, Section *symtab, int do_resolve)
             /* only weak symbols are accepted to be undefined. Their
                value is zero */
             sym_bind = ELFW(ST_BIND)(sym->st_info);
-            if (sym_bind == STB_WEAK)
+	    if (sym_bind == STB_WEAK)
                 sym->st_value = 0;
             else
                 tcc_error_noabort("undefined symbol '%s'", name);
-        } else if (sh_num < SHN_LORESERVE) {
+	} else if (sh_num < SHN_LORESERVE) {
             /* add section base */
             sym->st_value += s1->sections[sym->st_shndx]->sh_addr;
         }
