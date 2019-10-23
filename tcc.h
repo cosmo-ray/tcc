@@ -549,6 +549,7 @@ typedef struct Sym {
     };
     struct Sym *prev; /* prev symbol in stack */
     struct Sym *prev_tok; /* previous symbol for this token */
+    int child;
 } Sym;
 
 /* section definition */
@@ -591,6 +592,7 @@ typedef struct DLLReference {
 #define FUNC_NEW       1 /* ansi function prototype */
 #define FUNC_OLD       2 /* old function prototype */
 #define FUNC_ELLIPSIS  3 /* ansi function prototype with ... */
+#define FUNC_SELF  4 /* function where 1rst param might be an unknow type  */
 
 /* stored in 'Sym->f.func_call' field */
 #define FUNC_CDECL     0 /* standard c call */

@@ -3044,11 +3044,25 @@ static inline int is_null_pointer(SValue *p)
 static int is_compatible_func(CType *type1, CType *type2)
 {
     Sym *s1, *s2;
+    int ft1;
+    int ft2;
 
     s1 = type1->ref;
     s2 = type2->ref;
     if (s1->f.func_call != s2->f.func_call)
         return 0;
+    ft1 = s1->f.func_type;
+    ft2 = s1->f.func_type;
+    if (ft1 == FUNC_SELF || ft2 == FUNC_SELF) {
+	s1 = s1->next;
+	s2 = s2->next;
+	if (!s1)
+	    return !s2;
+	if (!s2)
+	    return 0;
+	ft1 = FUNC_NEW;
+	ft2 = FUNC_NEW;
+    }
     if (s1->f.func_type != s2->f.func_type
         && s1->f.func_type != FUNC_OLD
         && s2->f.func_type != FUNC_OLD)
@@ -4338,9 +4352,20 @@ static Sym * find_field(CType *type, int v, int *cumofs)
 	if ((s->v & SYM_FIELD) &&
 	    (s->type.t & VT_BTYPE) == VT_STRUCT &&
 	    (s->v & ~SYM_FIELD) >= SYM_FIRST_ANOM) {
-	    Sym *ret = find_field (&s->type, v, cumofs);
+	    Sym *ret = find_field(&s->type, v, cumofs);
 	    if (ret) {
                 *cumofs += s->c;
+	        return ret;
+            }
+	} else if (s->v & SYM_FIELD &&
+		   (s->type.t & VT_BTYPE) == VT_PTR &&
+		   (s->type.ref->type.t & VT_BTYPE) == VT_STRUCT &&
+		   s->type.ref->type.ref->a.self == 1) {
+	    Sym *ret = find_field(&s->type.ref->type, v, cumofs);
+
+	    if (ret) {
+		*cumofs += s->c;
+		ret->child = 1;
 	        return ret;
             }
 	}
@@ -4628,6 +4653,8 @@ static void struct_decl(CType *type, int u)
 do_decl:
     type->t = s->type.t;
     type->ref = s;
+    if (!s->a.self)
+	s->a.self = ad.a.self;
 
     if (tok == '{') {
         next();
@@ -5142,11 +5169,13 @@ static int post_type(CType *type, AttributeDef *ad, int storage, int td)
         arg_size = 0;
 	if (ad->a.self) {
 	    CType st = *self_struct_type;
+
 	    mk_pointer(&st);
 	    arg_size += (type_size(&st, &align) + PTR_SIZE - 1) / PTR_SIZE;
 	    s = sym_push(SYM_FIELD, &st, 0, 0);
 	    *plast = s;
 	    plast = &s->next;
+	    l = FUNC_SELF;
 	}
         if (l) {
             for(;;) {
@@ -6081,10 +6110,21 @@ special_math_val:
             if (tok == TOK_CINT || tok == TOK_CUINT)
                 expect("field name");
 	    s = find_field(&vtop->type, tok, &cumofs);
-	    if (s->type.t & VT_SELF)
-		self_ptr_sval = *vtop;
             if (!s)
                 tcc_error("field not found: %s",  get_tok_str(tok & ~SYM_FIELD, &tokc));
+	    if (s->type.t & VT_SELF) {
+		self_ptr_sval = *vtop;
+		if (s->child == 1) {
+		    /* 1rst get sub struct pointer index */
+		    vtop->type = char_pointer_type;
+		    vpushi(cumofs);
+		    gen_op('+');
+		    mk_pointer(&vtop->type);
+		    indir();
+		    cumofs = 0;
+		    s->child = 0;
+		}
+	    }
             /* add field offset to pointer */
             vtop->type = char_pointer_type; /* change type to 'char *' */
             vpushi(cumofs + s->c);
@@ -6175,12 +6215,13 @@ special_math_val:
             }
 	    if (is_self) {
 		SValue *self = &self_ptr_sval;
+
 		vset(&self->type, self->r, self->c.i);
 		/* vtop->sym = self->type.ref; */
 		mk_pointer(&vtop->type);
 		gaddrof();
 
-		gfunc_param_typed(s, sa);
+		/* gfunc_param_typed(s, sa); */
 		nb_args++;
 		if (sa)
                         sa = sa->next;
