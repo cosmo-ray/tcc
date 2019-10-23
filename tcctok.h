@@ -136,6 +136,8 @@
      DEF(TOK_ALWAYS_INLINE2, "__always_inline__")
      DEF(TOK_SELF1, "self")
      DEF(TOK_SELF2, "__slef__")
+     DEF(TOK_FORWARD_SELF1, "forward_self")
+     DEF(TOK_FORWARD_SELF2, "__forward_self__")
 
      DEF(TOK_MODE, "__mode__")
      DEF(TOK_MODE_QI, "__QI__")
