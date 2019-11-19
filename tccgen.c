@@ -837,17 +837,12 @@ static void call_user_callback(TCCUserCallback uc, int *bsym, int *csym)
     TCCUserAction ua = {};
     int ret = uc(&ua);
 
-    /* printf("call_user_callback %s !!!!\n", */
-    /* 	   get_tok_str(tok, &tokc)); */
     if (ret == TCCErrorOp) {
 	tcc_error("%s\n", ua.error ? ua.error :
 		  "sinternal error: unknow error in user callback");
 	goto out;
     }
     tcc_include_string(ua.include_string);
-    /* printf("before next %s\n%s\n", */
-    /* 	   get_tok_str(tok, &tokc), */
-    /* 	   ua.include_string); */
     next();
   out:
     /*
