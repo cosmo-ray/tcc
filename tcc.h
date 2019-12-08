@@ -314,14 +314,20 @@ extern long double strtold (const char *__nptr, char **__endptr);
 # define ONE_SOURCE 1
 #endif
 
+#ifdef MYLTY_THREADS
+# define THREAD_LOCAL _Thread_local
+#else
+# define THREAD_LOCAL
+#endif
+
 #if ONE_SOURCE
 #define ST_INLN static inline
 #define ST_FUNC static
-#define ST_DATA static
+#define ST_DATA THREAD_LOCAL static
 #else
 #define ST_INLN
 #define ST_FUNC
-#define ST_DATA extern
+#define ST_DATA THREAD_LOCAL extern
 #endif
 
 #ifdef TCC_PROFILE /* profile all functions */
@@ -1702,9 +1708,9 @@ ST_FUNC void gen_makedeps(TCCState *s, const char *target, const char *filename)
 /********************************************************/
 #undef ST_DATA
 #if ONE_SOURCE
-#define ST_DATA static
+#define ST_DATA THREAD_LOCAL static
 #else
-#define ST_DATA
+#define ST_DATA THREAD_LOCAL
 #endif
 /********************************************************/
 #endif /* _TCC_H */

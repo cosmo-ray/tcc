@@ -39,11 +39,11 @@ ST_DATA Sym *define_stack;
 ST_DATA Sym *global_label_stack;
 ST_DATA Sym *local_label_stack;
 
-static Sym *all_cleanups, *pending_gotos;
-static int local_scope;
-static int in_sizeof;
-static int in_generic;
-static int section_sym;
+THREAD_LOCAL static Sym *all_cleanups, *pending_gotos;
+THREAD_LOCAL static int local_scope;
+THREAD_LOCAL static int in_sizeof;
+THREAD_LOCAL static int in_generic;
+THREAD_LOCAL static int section_sym;
 
 ST_DATA SValue __vstack[1+VSTACK_SIZE], *vtop, *pvtop;
 
@@ -96,9 +96,9 @@ ST_DATA struct temp_local_variable {
 	short size;
 	short align;
 } arr_temp_local_vars[MAX_TEMP_LOCAL_VARIABLE_NUMBER];
-short nb_temp_local_vars;
+THREAD_LOCAL short nb_temp_local_vars;
 
-static struct scope {
+THREAD_LOCAL static struct scope {
     struct scope *prev;
     struct { int loc, num; } vla;
     struct { Sym *s; int n; } cl;

@@ -40,32 +40,32 @@ ST_DATA TokenSym **table_ident;
 
 /* ------------------------------------------------------------------------- */
 
-static TokenSym *hash_ident[TOK_HASH_SIZE];
-static char token_buf[STRING_MAX_SIZE + 1];
-static CString cstr_buf;
-static CString macro_equal_buf;
-static TokenString tokstr_buf;
-static unsigned char isidnum_table[256 - CH_EOF];
-static int pp_debug_tok, pp_debug_symv;
-static int pp_once;
-static int pp_expr;
-static int pp_counter;
+THREAD_LOCAL static TokenSym *hash_ident[TOK_HASH_SIZE];
+THREAD_LOCAL static char token_buf[STRING_MAX_SIZE + 1];
+THREAD_LOCAL static CString cstr_buf;
+THREAD_LOCAL static CString macro_equal_buf;
+THREAD_LOCAL static TokenString tokstr_buf;
+THREAD_LOCAL static unsigned char isidnum_table[256 - CH_EOF];
+THREAD_LOCAL static int pp_debug_tok, pp_debug_symv;
+THREAD_LOCAL static int pp_once;
+THREAD_LOCAL static int pp_expr;
+THREAD_LOCAL static int pp_counter;
 static void tok_print(const char *msg, const int *str);
 
-static struct TinyAlloc *toksym_alloc;
-static struct TinyAlloc *tokstr_alloc;
-static struct TinyAlloc *cstr_alloc;
+THREAD_LOCAL static struct TinyAlloc *toksym_alloc;
+THREAD_LOCAL static struct TinyAlloc *tokstr_alloc;
+THREAD_LOCAL static struct TinyAlloc *cstr_alloc;
 
-static TokenString *macro_stack;
+THREAD_LOCAL static TokenString *macro_stack;
 
-static const char tcc_keywords[] = 
+THREAD_LOCAL static const char tcc_keywords[] = 
 #define DEF(id, str) str "\0"
 #include "tcctok.h"
 #undef DEF
 ;
 
 /* WARNING: the content of this string encodes token numbers */
-static const unsigned char tok_two_chars[] =
+THREAD_LOCAL static const unsigned char tok_two_chars[] =
 /* outdated -- gr
     "<=\236>=\235!=\225&&\240||\241++\244--\242==\224<<\1>>\2+=\253"
     "-=\255*=\252/=\257%=\245&=\246^=\336|=\374->\313..\250##\266";

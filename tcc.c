@@ -24,7 +24,7 @@
 #endif
 #include "tcctools.c"
 
-static const char help[] =
+THREAD_LOCAL static const char help[] =
     "Tiny C Compiler "TCC_VERSION" - Copyright (C) 2001-2006 Fabrice Bellard\n"
     "Usage: tcc [options...] [-o outfile] [-c] infile(s)...\n"
     "       tcc [options...] -run infile [arguments...]\n"
@@ -78,7 +78,7 @@ static const char help[] =
 #endif
     ;
 
-static const char help2[] =
+THREAD_LOCAL static const char help2[] =
     "Tiny C Compiler "TCC_VERSION" - More Options\n"
     "Special options:\n"
     "  -P -P1                        with -E: no/alternative #line output\n"
@@ -143,7 +143,7 @@ static const char help2[] =
     "See also the manual for more details.\n"
     ;
 
-static const char version[] =
+THREAD_LOCAL static const char version[] =
     "tcc version "TCC_VERSION" ("
 #ifdef TCC_TARGET_I386
         "i386"
