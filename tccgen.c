@@ -7818,9 +7818,15 @@ static int decl0(int l, int is_for_loop_init, Sym *func_sym)
 	    skip('(');
 	    c = expr_const();
 	    skip(',');
-	    if (c == 0)
-		tcc_error("%s", get_tok_str(tok, &tokc));
-	    next();
+	    if (c == 0) {
+		CString error_str;
+
+		parse_mult_str(&error_str, "string constant");
+		tcc_error("%s", error_str.data);
+	    }
+	    do
+		next();
+	    while (tok == TOK_STR);
 	    skip(')');
             skip(';');
 	    continue;
