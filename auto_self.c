@@ -25,7 +25,7 @@ struct caller {
 
 void printer(struct caller *c0)
 {
-	printf("printer: %d\n", c0->nb);
+	printf("printer: %p %p %d\n", c0, &c0, c0->nb);
 }
 
 void print2(struct caller *c0)
@@ -47,15 +47,21 @@ int main(void)
 	struct caller cs = {3,
 			    &caller_ops,
 			    printer, p_i};
-	struct caller c2 = {3,
-			    &caller_o2,
-			    printer, p_i};
+	/* struct caller c2 = {3, */
+	/* 		    &caller_o2, */
+	/* 		    printer, p_i}; */
 
-	cs.printer();
-	c2.far_print();
-	cs.nb = 10;
+	struct caller *cp = &cs;
+
+	printf("%p %p %p\n", cp, &cp, &cs);
+	/* cs.printer(); */
 	cs.far_print();
-	cs.nb = 9999;
-	cs.pri_int(9);
-	cs.far_pi(101);
+	/* cs.nb = 10; */
+	/* cs.far_print(); */
+	/* cs.nb = 9999; */
+	/* cs.pri_int(9); */
+	/* cs.far_pi(101); */
+	/* cp->far_print(); */
+	cp->far_print();
+	/* cp->far_pi(12); */
 }

@@ -6078,11 +6078,13 @@ special_math_val:
     
     /* post operations */
     while (1) {
-        if (tok == TOK_INC || tok == TOK_DEC) {
+
+	if (tok == TOK_INC || tok == TOK_DEC) {
             inc(1, tok);
             next();
         } else if (tok == '.' || tok == TOK_ARROW || tok == TOK_CDOUBLE) {
             int qualifiers, cumofs = 0;
+	    SValue self = *vtop;
             /* field */ 
 
 	    if (tok == TOK_ARROW) 
@@ -6100,9 +6102,9 @@ special_math_val:
                 expect("field name");
 	    s = find_field(&vtop->type, tok, &cumofs);
             if (!s)
-                tcc_error("field not found: %s",  get_tok_str(tok & ~SYM_FIELD, &tokc));
+                tcc_error("field not found: %s", get_tok_str(tok & ~SYM_FIELD, &tokc));
 	    if (s->type.t & VT_SELF) {
-		self_ptr_sval = *vtop;
+		self_ptr_sval = self;
 		if (s->child == 1) {
 		    /* 1rst get sub struct pointer index */
 		    vtop->type = char_pointer_type;
@@ -6206,10 +6208,11 @@ special_math_val:
 		SValue *self = &self_ptr_sval;
 
 		vset(&self->type, self->r, self->c.i);
-		/* vtop->sym = self->type.ref; */
-		mk_pointer(&vtop->type);
-		gaddrof();
+		if (self->sym->type.t == 7) {
+			mk_pointer(&vtop->type);
+			gaddrof();
 
+		}
 		/* gfunc_param_typed(s, sa); */
 		nb_args++;
 		if (sa)
