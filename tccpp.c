@@ -2643,7 +2643,14 @@ static inline void next_nomacro1(void)
                 tok_flags |= TOK_FLAG_EOF;
                 tok = TOK_LINEFEED;
                 goto keep_tok_flags;
-            } else if (!(parse_flags & PARSE_FLAG_PREPROCESS)) {
+            } else if (file->fd == -2) {
+	      tok_flags &= ~TOK_FLAG_EOF;
+	      tcc_close();
+	      p = file->buf_ptr;
+	      if (p == file->buffer)
+		tok_flags = TOK_FLAG_BOF|TOK_FLAG_BOL;
+	      goto redo_no_start;
+	    } else if (!(parse_flags & PARSE_FLAG_PREPROCESS)) {
                 tok = TOK_EOF;
             } else if (s1->ifdef_stack_ptr != file->ifdef_stack_ptr) {
                 tcc_error("missing #endif");
