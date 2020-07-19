@@ -14,6 +14,25 @@ struct TCCState;
 typedef struct TCCState TCCState;
 
 typedef void (*TCCErrorFunc)(void *opaque, const char *msg);
+struct TCCSym;
+typedef struct TCCSym TCCSym;
+
+enum {
+    TCCErrorOp = -1,
+    TCCAddBlock
+};
+
+struct TCCUserAction {
+    union {
+	char *include_string;
+	char *error;
+    };
+    int should_free;
+};
+
+typedef struct TCCUserAction TCCUserAction;
+
+typedef int (*TCCUserCallback)(TCCUserAction *ua);
 
 /* create a new TCC compilation context */
 LIBTCCAPI TCCState *tcc_new(void);
@@ -103,6 +122,28 @@ LIBTCCAPI void *tcc_get_symbol(TCCState *s, const char *name);
 /* return symbol value or NULL if not found */
 LIBTCCAPI void tcc_list_symbols(TCCState *s, void *ctx,
     void (*symbol_cb)(void *ctx, const char *name, const void *val));
+/* external scripting */
+
+LIBTCCAPI void tcc_add_user_token(TCCState *s, const char *tok_name,
+				  TCCUserCallback callback);
+
+LIBTCCAPI void tcc_next(void);
+
+LIBTCCAPI int tcc_tok(void);
+
+LIBTCCAPI int tcc_tok_is_decimal(int tok);
+LIBTCCAPI int tcc_tok_is_float(int tok);
+LIBTCCAPI int tcc_tok_is_number(int tok);
+LIBTCCAPI int tcc_tok_is_ident(int tok);
+LIBTCCAPI int tcc_tok_is_str(int tok);
+
+LIBTCCAPI struct TCCSym *tcc_sym(void);
+LIBTCCAPI int tcc_sym_is_decimal(struct TCCSym *s);
+LIBTCCAPI int tcc_sym_is_float(struct TCCSym *s);
+LIBTCCAPI int tcc_sym_is_function(struct TCCSym *s);
+LIBTCCAPI int tcc_sym_is_cstr(struct TCCSym *s);
+
+LIBTCCAPI const char *tcc_tok_str(void);
 
 #ifdef __cplusplus
 }

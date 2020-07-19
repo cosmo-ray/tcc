@@ -94,6 +94,8 @@ static CString initstr;
 #define VT_PTRDIFF_T (VT_LONG | VT_LLONG)
 #endif
 
+ST_DATA UserTokList *user_tok_lst;
+
 ST_DATA struct switch_t {
     struct case_t {
         int64_t v1, v2;
@@ -827,6 +829,51 @@ ST_FUNC void tccgen_finish(TCCState *s1)
     dynarray_reset(&sym_pools, &nb_sym_pools);
     sym_free_first = NULL;
 }
+
+static void call_user_callback(TCCUserCallback uc, int *bsym, int *csym)
+{
+    TCCUserAction ua = {};
+    int ret = uc(&ua);
+
+    /* printf("call_user_callback %s !!!!\n", */
+    /* 	   get_tok_str(tok, &tokc)); */
+    if (ret == TCCErrorOp) {
+	tcc_error("%s\n", ua.error ? ua.error :
+		  "sinternal error: unknow error in user callback");
+	goto out;
+    }
+    tcc_include_string(ua.include_string);
+    /* printf("before next %s\n%s\n", */
+    /* 	   get_tok_str(tok, &tokc), */
+    /* 	   ua.include_string); */
+    next();
+  out:
+    /*
+     * include_string and error are the same type
+     * so free error will free include_string
+     */
+    if (ua.should_free) {
+	tcc_free(ua.error);
+    }
+    return;
+}
+
+static TCCUserCallback is_user_tok(void)
+{
+    const char *str;
+
+    if (tok < TOK_UIDENT)
+        return 0;
+    str = get_tok_str(tok, &tokc);
+    for (UserTokList *lst = user_tok_lst; lst; lst = lst->next) {
+	/* printf("is user tok %s %s!!!!!!!\n", str, */
+	/*        lst->tok_name); */
+	if (!strcmp(str, lst->tok_name))
+	    return lst->callback;
+    }
+    return NULL;
+}
+
 
 /* ------------------------------------------------------------------------- */
 ST_FUNC ElfSym *elfsym(Sym *s)
@@ -3715,7 +3762,7 @@ ST_FUNC void vla_runtime_type_size(CType *type, int *a)
 }
 
 /* return the pointed type of t */
-static inline CType *pointed_type(CType *type)
+ST_FUNC CType *pointed_type(CType *type)
 {
     return &type->ref->type;
 }
@@ -7171,7 +7218,6 @@ again:
 
     } else if (t == TOK_ASM1 || t == TOK_ASM2 || t == TOK_ASM3) {
         asm_instr();
-
     } else {
         if (tok == ':' && t >= TOK_UIDENT) {
             /* label case */
@@ -7206,7 +7252,17 @@ again:
         } else {
             /* expression case */
             if (t != ';') {
+		TCCUserCallback user_callback;
+
                 unget_tok(t);
+
+		if ((user_callback = is_user_tok()) != NULL) {
+		    call_user_callback(user_callback,
+				       cur_scope->bsym,
+				       cur_scope->csym);
+		    return;
+		}
+
                 if (is_expr) {
                     vpop();
                     gexpr();
