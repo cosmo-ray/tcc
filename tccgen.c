@@ -4967,6 +4967,9 @@ static int parse_btype(CType *type, AttributeDef *ad)
             type->ref = type1.ref;
             goto basic_type1;
         case TOK_STRUCT:
+        case TOK_CLASS:
+	    printf("TOK_STRUCT:!\n");
+	    printf("TOK_CLASS:!\n");
             struct_decl(&type1, VT_STRUCT);
             goto basic_type2;
         case TOK_UNION:

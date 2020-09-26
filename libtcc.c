@@ -1225,7 +1225,10 @@ LIBTCCAPI int tcc_add_file(TCCState *s, const char *filename)
                 filetype = AFF_TYPE_ASMPP;
             else if (!strcmp(ext, "s"))
                 filetype = AFF_TYPE_ASM;
-            else if (!PATHCMP(ext, "c") || !PATHCMP(ext, "i"))
+            else if (!PATHCMP(ext, "cpp") || !PATHCMP(ext, "hh") ||
+		     !PATHCMP(ext, "cc"))
+		filetype = AFF_TYPE_CXX;
+	    else if (!PATHCMP(ext, "c") || !PATHCMP(ext, "i"))
                 filetype = AFF_TYPE_C;
             else
                 filetype |= AFF_TYPE_BIN;

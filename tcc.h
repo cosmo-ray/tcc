@@ -723,10 +723,10 @@ struct TCCState {
     unsigned char static_link; /* if true, static linking is performed */
     unsigned char rdynamic; /* if true, all symbols are exported */
     unsigned char symbolic; /* if true, resolve symbols in the current module first */
-    unsigned char filetype; /* file type for compilation (NONE,C,ASM) */
     unsigned char optimize; /* only to #define __OPTIMIZE__ */
     unsigned char option_pthread; /* -pthread option */
     unsigned char enable_new_dtags; /* -Wl,--enable-new-dtags */
+    unsigned short filetype; /* file type for compilation (NONE,C,ASM) */
     unsigned int  cversion; /* supported C ISO version, 199901 (the default), 201112, ... */
 
     char *tcc_lib_path; /* CONFIG_TCCDIR or -B option */
@@ -1293,6 +1293,7 @@ ST_FUNC int tcc_add_file_internal(TCCState *s1, const char *filename, int flags)
 #define AFF_TYPE_ASM    2
 #define AFF_TYPE_ASMPP  4
 #define AFF_TYPE_LIB    8
+#define AFF_TYPE_CXX    0x100
 #define AFF_TYPE_MASK   (15 | AFF_TYPE_BIN)
 /* values from tcc_object_type(...) */
 #define AFF_BINTYPE_REL 1

@@ -326,6 +326,11 @@
      DEF(TOK_setjmp, "setjmp")
      DEF(TOK__setjmp, "_setjmp")
 #endif
+/* C++ */
+     DEF(TOK_CLASS, "class")
+     DEF(TOK_VIRTUAL, "virtual")
+     DEF(TOK_PRIVATE, "private")
+     DEF(TOK_PUBLIC, "public")
 
 /* Tiny Assembler */
  DEF_ASMDIR(byte)              /* must be first directive */
