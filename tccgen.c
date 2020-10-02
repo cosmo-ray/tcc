@@ -4726,6 +4726,11 @@ do_decl:
             c = 0;
             flexible = 0;
             while (tok != '}') {
+		if (tok == TOK_PUBLIC || tok == TOK_PRIVATE) {
+		    next();
+		    skip(':');
+		    continue;
+		}
                 if (!parse_btype(&btype, &ad1)) {
 		    skip(';');
 		    continue;
@@ -4741,9 +4746,11 @@ do_decl:
                     v = 0;
                     type1 = btype;
                     if (tok != ':') {
-			if (tok != ';')
+			if (tok != ';') {
+			    printf("TYPE DECL?\n");
                             type_decl(&type1, &ad1, &v, TYPE_DIRECT);
-			                        if (v == 0) {
+			}
+			if (v == 0) {
                     	    if ((type1.t & VT_BTYPE) != VT_STRUCT)
                         	expect("identifier");
                     	    else {
@@ -4761,8 +4768,12 @@ do_decl:
 			        tcc_error("field '%s' has incomplete type",
                                       get_tok_str(v, NULL));
                         }
-                        if ((type1.t & VT_BTYPE) == VT_FUNC ||
-			    (type1.t & VT_BTYPE) == VT_VOID ||
+			if ((type1.t & VT_BTYPE) == VT_FUNC) {
+			    printf("((type1.t & VT_BTYPE) == VT_FUNC)\n");
+			    printf("%s\n", get_tok_str(tok, &tokc));
+			    break;
+			}
+                        if ((type1.t & VT_BTYPE) == VT_VOID ||
                             (type1.t & VT_STORAGE))
                             tcc_error("invalid type for '%s'", 
                                   get_tok_str(v, NULL));
@@ -4968,8 +4979,6 @@ static int parse_btype(CType *type, AttributeDef *ad)
             goto basic_type1;
         case TOK_STRUCT:
         case TOK_CLASS:
-	    printf("TOK_STRUCT:!\n");
-	    printf("TOK_CLASS:!\n");
             struct_decl(&type1, VT_STRUCT);
             goto basic_type2;
         case TOK_UNION:
@@ -4977,6 +4986,10 @@ static int parse_btype(CType *type, AttributeDef *ad)
             goto basic_type2;
 
             /* type modifiers */
+        case TOK_VIRTUAL:
+	    printf("TOK_VIRTUAL\n");
+	    next();
+	    break;
         case TOK_CONST1:
         case TOK_CONST2:
         case TOK_CONST3:
@@ -5386,6 +5399,16 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
 	/* type identifier */
 	*v = tok;
 	next();
+	if (tok == ':') {
+	    Sym *s = struct_find(*v);
+
+	    printf("mangle time %p!\n", s);
+	    printf("_s_%s_", get_tok_str(*v, NULL));
+	    next();
+	    skip(':');
+	    printf("%s\n", get_tok_str(tok, NULL));
+	}
+
     } else {
   abstract:
 	if (!(td & TYPE_ABSTRACT))

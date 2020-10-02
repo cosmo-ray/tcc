@@ -582,6 +582,8 @@ no_file:
     } else {
         s1->error_func(s1->error_opaque, buf);
     }
+
+    abort();
     if (s1) {
         if (mode != ERROR_WARN)
             s1->nb_errors++;

@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 class Forme {
 public:
 	virtual const char *c_str() = 0;
