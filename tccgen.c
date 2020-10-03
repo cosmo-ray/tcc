@@ -4769,8 +4769,11 @@ do_decl:
                                       get_tok_str(v, NULL));
                         }
 			if ((type1.t & VT_BTYPE) == VT_FUNC) {
+			    TokenSym *ntok = tok_alloc("my_new_tok", sizeof("my_new_tok"));
+
 			    printf("((type1.t & VT_BTYPE) == VT_FUNC)\n");
-			    printf("%s\n", get_tok_str(tok, &tokc));
+			    printf("%s - %s\n", get_tok_str(tok, &tokc),
+				   get_tok_str(ntok->tok, 0));
 			    break;
 			}
                         if ((type1.t & VT_BTYPE) == VT_VOID ||
@@ -5401,12 +5404,16 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
 	next();
 	if (tok == ':') {
 	    Sym *s = struct_find(*v);
+	    char fname[512];
 
 	    printf("mangle time %p!\n", s);
-	    printf("_s_%s_", get_tok_str(*v, NULL));
 	    next();
 	    skip(':');
-	    printf("%s\n", get_tok_str(tok, NULL));
+	    snprintf(fname, 512, "_s_%s_%s",
+		     get_tok_str(*v, NULL), get_tok_str(tok, NULL));
+	    *v = tok_alloc(fname, strlen(fname))->tok;
+	    printf("%s\n", fname);
+	    next();
 	}
 
     } else {
