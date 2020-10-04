@@ -3716,6 +3716,8 @@ ST_FUNC int type_size(CType *type, int *a)
     Sym *s;
     int bt;
 
+    if (type->t & VT_NOTHING)
+	return 0;
     bt = type->t & VT_BTYPE;
     if (bt == VT_STRUCT) {
         /* struct/union */
@@ -4629,6 +4631,7 @@ static void struct_decl(CType *type, int u)
     parse_attribute(&ad);
     if (tok != '{') {
         v = tok;
+	printf("??? %s\n", get_tok_str(v, NULL));
         next();
         /* struct already defined ? return it */
         if (v < TOK_IDENT)
@@ -4773,8 +4776,8 @@ do_decl:
 
 			    printf("((type1.t & VT_BTYPE) == VT_FUNC)\n");
 			    printf("%s - %s\n", get_tok_str(tok, &tokc),
-				   get_tok_str(ntok->tok, 0));
-			    break;
+				   get_tok_str(v, 0));
+			    type1.t |= VT_NOTHING | VT_SELF;
 			}
                         if ((type1.t & VT_BTYPE) == VT_VOID ||
                             (type1.t & VT_STORAGE))
@@ -6149,6 +6152,18 @@ special_math_val:
                 tcc_error("field not found: %s", get_tok_str(tok & ~SYM_FIELD, &tokc));
 	    if (s->type.t & VT_SELF) {
 		self_ptr_sval = self;
+		if ((s->type.t & VT_BTYPE) == VT_FUNC) {
+		    char fname[512];
+
+		    snprintf(fname, 512, "_s_%s_%s",
+			     get_tok_str(vtop->type.ref->v & ~SYM_STRUCT, 0),
+			     get_tok_str(tok, NULL));
+		    tok = tok_alloc(fname, strlen(fname))->tok;
+		    printf("good call ?: %s %s\n",
+			   get_tok_str(tok, 0),
+			   get_tok_str(tok, 0));
+		    goto tok_identifier;
+		}
 		if (s->child == 1) {
 		    /* 1rst get sub struct pointer index */
 		    vtop->type = char_pointer_type;
@@ -8431,6 +8446,7 @@ static int decl0(int l, int is_for_loop_init, Sym *func_sym)
                 break;
             }
         }
+	/* printf("h: %s %s\n", btype.ref ? get_tok_str(btype.ref->v, 0) : "(nil)", get_tok_str(tok, 0)); */
         if (tok == ';') {
 	    if ((btype.t & VT_BTYPE) == VT_STRUCT) {
 		int v = btype.ref->v;

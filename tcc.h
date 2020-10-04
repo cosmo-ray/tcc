@@ -1008,6 +1008,7 @@ struct filespec {
 
 /* object ? */
 #define VT_SELF  0x00010000  /* inline definition */
+#define VT_NOTHING  0x00020000  /* inline definition */
 
 /* currently unused: 0x000[1248]0000  */
 
