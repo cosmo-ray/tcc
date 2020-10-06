@@ -616,6 +616,7 @@ typedef struct DLLReference {
 /* type_decl() types */
 #define TYPE_ABSTRACT  1 /* type without variable */
 #define TYPE_DIRECT    2 /* type with variable */
+#define TYPE_IN_STRUCT 4
 
 #define IO_BUF_SIZE 8192
 

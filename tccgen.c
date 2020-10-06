@@ -4751,7 +4751,7 @@ do_decl:
                     if (tok != ':') {
 			if (tok != ';') {
 			    printf("TYPE DECL?\n");
-                            type_decl(&type1, &ad1, &v, TYPE_DIRECT);
+                            type_decl(&type1, &ad1, &v, TYPE_DIRECT | TYPE_IN_STRUCT);
 			}
 			if (v == 0) {
                     	    if ((type1.t & VT_BTYPE) != VT_STRUCT)
@@ -5405,7 +5405,7 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
 	/* type identifier */
 	*v = tok;
 	next();
-	if (tok == ':') {
+	if (tok == ':' && !(td & TYPE_IN_STRUCT)) {
 	    Sym *s = struct_find(*v);
 	    char fname[512];
 
@@ -5576,6 +5576,7 @@ ST_FUNC void unary(void)
     CType type;
     Sym *s;
     AttributeDef ad;
+    int is_self = 0;
 
     /* generate line number info */
     if (tcc_state->do_debug)
@@ -6155,16 +6156,20 @@ special_math_val:
 		if ((s->type.t & VT_BTYPE) == VT_FUNC) {
 		    char fname[512];
 
+		    printf("%p - %p -  %p\n", vtop, vstack, vstack - 1);
 		    snprintf(fname, 512, "_s_%s_%s",
 			     get_tok_str(vtop->type.ref->v & ~SYM_STRUCT, 0),
 			     get_tok_str(tok, NULL));
 		    tok = tok_alloc(fname, strlen(fname))->tok;
-		    printf("good call ?: %s %s\n",
+		    is_self = 1;
+		    printf("good call ?: %s %s %d %d\n",
 			   get_tok_str(tok, 0),
-			   get_tok_str(tok, 0));
+			   get_tok_str(tok, 0),
+			   vtop, vstack);
+		    vpop();
 		    goto tok_identifier;
 		}
-		if (s->child == 1) {
+		else if (s->child == 1) {
 		    /* 1rst get sub struct pointer index */
 		    vtop->type = char_pointer_type;
 		    vpushi(cumofs);
@@ -6202,7 +6207,9 @@ special_math_val:
             SValue ret;
             Sym *sa;
             int nb_args, ret_nregs, ret_align, regsize, variadic;
-	    int is_self = (vtop->type.t & VT_SELF);
+	    is_self = is_self ? is_self : (vtop->type.t & VT_SELF);
+	    printf("call, is self: %d\n", is_self);
+	    printf("2: %p - %p - %p\n", vtop, vstack, vstack - 1);
 
 	    /* function call  */
             if ((vtop->type.t & VT_BTYPE) != VT_FUNC) {

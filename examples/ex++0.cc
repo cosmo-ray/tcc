@@ -23,5 +23,5 @@ int main()
 	class Head h;
 
 	// printf("%s\n", h.c_str());
-	printf("%s\n", h.c_str(&h));
+	printf("%s\n", h.c_str());
 }
