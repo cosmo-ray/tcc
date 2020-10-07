@@ -6166,6 +6166,7 @@ special_math_val:
 			   get_tok_str(tok, 0),
 			   get_tok_str(tok, 0),
 			   vtop, vstack);
+		    printf("is_self0 %d %d %d\n", self.type.t, self.r, self.c.i);
 		    vpop();
 		    goto tok_identifier;
 		}
@@ -6273,6 +6274,7 @@ special_math_val:
 	    if (is_self) {
 		SValue *self = &self_ptr_sval;
 
+		printf("is_self %d %d %ld\n", self->type.t, self->r, self->c.i);
 		vset(&self->type, self->r, self->c.i);
 		if (self->sym->type.t == 7) {
 			mk_pointer(&vtop->type);
