@@ -6156,17 +6156,11 @@ special_math_val:
 		if ((s->type.t & VT_BTYPE) == VT_FUNC) {
 		    char fname[512];
 
-		    printf("%p - %p -  %p\n", vtop, vstack, vstack - 1);
 		    snprintf(fname, 512, "_s_%s_%s",
 			     get_tok_str(vtop->type.ref->v & ~SYM_STRUCT, 0),
 			     get_tok_str(tok, NULL));
 		    tok = tok_alloc(fname, strlen(fname))->tok;
 		    is_self = 1;
-		    printf("good call ?: %s %s %d %d\n",
-			   get_tok_str(tok, 0),
-			   get_tok_str(tok, 0),
-			   vtop, vstack);
-		    printf("is_self0 %d %d %d\n", self.type.t, self.r, self.c.i);
 		    vpop();
 		    goto tok_identifier;
 		}
