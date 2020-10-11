@@ -10,14 +10,14 @@ private:
 	const char *h_;
 };
 
-void Head::set(class Head *h, const char *to_set)
+void Head::set(const char *to_set)
 {
-	h->h_ = to_set;
+	this->h_ = to_set;
 }
 
-void Head::init(class Head *h)
+void Head::init()
 {
-	h->h_ = "  ___\n"
+	this->h_ = "  ___\n"
 		" /   \\\n"
 		"(|O O|)\n"
 		" | ^ |\n"
@@ -25,10 +25,10 @@ void Head::init(class Head *h)
 		"  ---";
 }
 
-const char *Head::c_str(class Head *h)
+const char *Head::c_str()
 {
-	printf("c_str ret: %p\n", h);
-	return  h->h_;
+	printf("c_str ret: %p\n", this);
+	return  this->h_;
 }
 
 int main()

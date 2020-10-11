@@ -331,6 +331,7 @@
      DEF(TOK_VIRTUAL, "virtual")
      DEF(TOK_PRIVATE, "private")
      DEF(TOK_PUBLIC, "public")
+     DEF(TOK_THIS, "this")
 
 /* Tiny Assembler */
  DEF_ASMDIR(byte)              /* must be first directive */

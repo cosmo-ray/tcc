@@ -214,6 +214,8 @@ ST_FUNC void asm_global_instr(void)
 static CType *self_struct_type;
 static SValue self_ptr_sval;
 
+static int methode_tok;
+
 
 /* ------------------------------------------------------------------------- */
 static void gen_cast(CType *type);
@@ -5174,9 +5176,32 @@ static int post_type(CType *type, AttributeDef *ad, int storage, int td)
 
     if (tok == '(') {
         /* function type, or recursive declarator (return if so) */
+	if (methode_tok) {
+	    TokenString *str = tok_str_alloc();
+	    int last_tok;
+
+	    next();
+	    last_tok = tok;
+	    tok_str_add(str, TOK_STRUCT);
+	    tok_str_add(str, methode_tok);
+	    tok_str_add(str, '*');
+	    tok_str_add(str, TOK_THIS);
+	    if (last_tok != ')') {
+		printf("skip ,\n");
+		tok_str_add(str, ',');
+	    }
+	    tok_str_add(str, last_tok);
+	    tok_str_add(str, 0);
+
+	    printf("push this here %s - %s\n", get_tok_str(methode_tok, 0),
+		   get_tok_str(tok, 0));
+	    begin_macro(str, 1);
+	    methode_tok = 0;
+	}
         next();
 	if (td && !(td & TYPE_ABSTRACT))
 	  return 0;
+
 	if (tok == ')')
 	  l = 0;
 	else if (parse_btype(&pt, &ad1))
@@ -5406,12 +5431,12 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
 	*v = tok;
 	next();
 	if (tok == ':' && !(td & TYPE_IN_STRUCT)) {
-	    Sym *s = struct_find(*v);
 	    char fname[512];
 
-	    printf("mangle time %p!\n", s);
+	    printf("mangle time !\n");
 	    next();
 	    skip(':');
+	    methode_tok = *v;
 	    snprintf(fname, 512, "_s_%s_%s",
 		     get_tok_str(*v, NULL), get_tok_str(tok, NULL));
 	    *v = tok_alloc(fname, strlen(fname))->tok;
