@@ -5187,14 +5187,10 @@ static int post_type(CType *type, AttributeDef *ad, int storage, int td)
 	    tok_str_add(str, '*');
 	    tok_str_add(str, TOK_THIS);
 	    if (last_tok != ')') {
-		printf("skip ,\n");
 		tok_str_add(str, ',');
 	    }
 	    tok_str_add(str, last_tok);
 	    tok_str_add(str, 0);
-
-	    printf("push this here %s - %s\n", get_tok_str(methode_tok, 0),
-		   get_tok_str(tok, 0));
 	    begin_macro(str, 1);
 	    methode_tok = 0;
 	}
