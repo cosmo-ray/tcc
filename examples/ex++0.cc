@@ -1,3 +1,4 @@
+/* This seems to work */
 //#include <stdio.h>
 int printf(const char *format, ...);
 

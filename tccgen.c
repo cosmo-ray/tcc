@@ -4645,7 +4645,6 @@ static void struct_decl(CType *type, int u)
     parse_attribute(&ad);
     if (tok != '{') {
         v = tok;
-	printf("??? %s\n", get_tok_str(v, NULL));
         next();
         /* struct already defined ? return it */
         if (v < TOK_IDENT)
@@ -4672,6 +4671,38 @@ do_decl:
     type->ref = s;
     if (!s->a.self)
 	s->a.self = ad.a.self;
+
+    if (tok == ':') {
+	Sym *parent_s;
+	Sym *field_s;
+
+	ps = &s->next;
+        if (s->c != -1)
+            tcc_error("struct/union/enum already defined");
+        s->c = -2;
+
+	next();
+	if (tok != TOK_PUBLIC && tok != TOK_PRIVATE && tok != TOK_PROTECED) {
+	    expect("public, protected or private");
+	}
+	next();
+	parent_s = struct_find(tok);
+	if (!s) {
+	    expect("existing struct");
+	}
+
+	field_s = parent_s->next;
+	do {
+	    printf("field: %s\n",
+		   get_tok_str(field_s->v & ~SYM_FIELD, 0));
+	    ss = sym_push(field_s->v, &field_s->type, 0, 0);
+	    *ps = ss;
+	    ps = &ss->next;
+	} while ((field_s = field_s->next) != NULL);
+	next();
+	skip('{');
+	goto struct_fields;
+    }
 
     if (tok == '{') {
         next();
@@ -4740,10 +4771,12 @@ do_decl:
                     | (LONG_SIZE==8 ? VT_LLONG|VT_LONG : VT_LLONG);
             }
         } else {
+	  struct_fields:
             c = 0;
             flexible = 0;
             while (tok != '}') {
-		if (tok == TOK_PUBLIC || tok == TOK_PRIVATE) {
+		if (tok == TOK_PUBLIC || tok == TOK_PRIVATE ||
+		    tok == TOK_PROTECED) {
 		    next();
 		    skip(':');
 		    continue;
