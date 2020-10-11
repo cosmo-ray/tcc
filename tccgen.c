@@ -386,6 +386,18 @@ ST_FUNC void check_vstack(void)
                   (int)(vtop - vstack + 1));
 }
 
+static int st_mangling(int class_tok, int func_tok)
+{
+    char fname[512];
+    int ret;
+
+    snprintf(fname, 512, "_s_%s_%s",
+	     get_tok_str(class_tok, NULL), get_tok_str(func_tok, NULL));
+
+    ret = tok_alloc(fname, strlen(fname))->tok;
+    return ret;
+}
+
 /* ------------------------------------------------------------------------- */
 /* vstack debugging aid */
 
@@ -5427,16 +5439,10 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
 	*v = tok;
 	next();
 	if (tok == ':' && !(td & TYPE_IN_STRUCT)) {
-	    char fname[512];
-
-	    printf("mangle time !\n");
 	    next();
 	    skip(':');
 	    methode_tok = *v;
-	    snprintf(fname, 512, "_s_%s_%s",
-		     get_tok_str(*v, NULL), get_tok_str(tok, NULL));
-	    *v = tok_alloc(fname, strlen(fname))->tok;
-	    printf("%s\n", fname);
+	    *v = st_mangling(*v, tok);
 	    next();
 	}
 
@@ -6175,12 +6181,7 @@ special_math_val:
 	    if (s->type.t & VT_SELF) {
 		self_ptr_sval = self;
 		if ((s->type.t & VT_BTYPE) == VT_FUNC) {
-		    char fname[512];
-
-		    snprintf(fname, 512, "_s_%s_%s",
-			     get_tok_str(vtop->type.ref->v & ~SYM_STRUCT, 0),
-			     get_tok_str(tok, NULL));
-		    tok = tok_alloc(fname, strlen(fname))->tok;
+		    tok = st_mangling(vtop->type.ref->v & ~SYM_STRUCT, tok);
 		    is_self = 1;
 		    vpop();
 		    goto tok_identifier;

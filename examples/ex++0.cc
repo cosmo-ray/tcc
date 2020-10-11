@@ -28,7 +28,7 @@ void Head::init()
 
 const char *Head::c_str()
 {
-    return  this->h_;
+    return this->h_;
 }
 
 int main()
