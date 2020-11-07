@@ -719,6 +719,7 @@ struct TCCState {
     unsigned char verbose; /* if true, display some information during compilation */
     unsigned char nostdinc; /* if true, no standard headers are added */
     unsigned char nostdlib; /* if true, no standard libraries are added */
+    unsigned char onlystdbasic; /* if true, no standard libraries are added but crc and va_args are */
     unsigned char nocommon; /* if true, do not use common symbols for .bss data */
     unsigned char static_link; /* if true, static linking is performed */
     unsigned char rdynamic; /* if true, all symbols are exported */

@@ -1488,6 +1488,8 @@ static int tcc_set_linker(TCCState *s, const char *option)
             s->symbolic = 1;
         } else if (link_option(option, "nostdlib", &p)) {
             s->nostdlib = 1;
+        } else if (link_option(option, "stdbase", &p)) {
+            s->onlystdbasic = 1;
         } else if (link_option(option, "fini=", &p)) {
             copy_linker_arg(&s->fini_symbol, p, 0);
             ignoring = 1;
@@ -1611,6 +1613,7 @@ enum {
     TCC_OPTION_d,
     TCC_OPTION_static,
     TCC_OPTION_std,
+    TCC_OPTION_stdbase,
     TCC_OPTION_shared,
     TCC_OPTION_soname,
     TCC_OPTION_o,
@@ -1700,6 +1703,7 @@ static const TCCOption tcc_options[] = {
     { "include", TCC_OPTION_include, TCC_OPTION_HAS_ARG },
     { "nostdinc", TCC_OPTION_nostdinc, 0 },
     { "nostdlib", TCC_OPTION_nostdlib, 0 },
+    { "stdbase", TCC_OPTION_stdbase, 0 },
     { "print-search-dirs", TCC_OPTION_print_search_dirs, 0 },
     { "w", TCC_OPTION_w, 0 },
     { "pipe", TCC_OPTION_pipe, 0},
@@ -1978,6 +1982,9 @@ reparse:
             break;
         case TCC_OPTION_nostdlib:
             s->nostdlib = 1;
+            break;
+        case TCC_OPTION_stdbase:
+            s->onlystdbasic = 1;
             break;
         case TCC_OPTION_run:
 #ifndef TCC_IS_NATIVE

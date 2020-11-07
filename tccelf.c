@@ -1416,7 +1416,7 @@ ST_FUNC void tcc_add_runtime(TCCState *s1)
 #endif
     tcc_add_pragma_libs(s1);
     /* add libc */
-    if (!s1->nostdlib) {
+    if (!s1->nostdlib && !s1->onlystdbasic) {
         if (s1->option_pthread)
             tcc_add_library_err(s1, "pthread");
         tcc_add_library_err(s1, "c");

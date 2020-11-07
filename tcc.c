@@ -69,6 +69,7 @@ static const char help[] =
     "  -x[c|a|b|n]  specify type of the next infile (C,ASM,BIN,NONE)\n"
     "  -nostdinc    do not use standard system include paths\n"
     "  -nostdlib    do not link with standard crt and libraries\n"
+    "  -stdbase     link with standard crt but no libraries\n"
     "  -Bdir        set tcc's private include/library dir\n"
     "  -MD          generate dependency file for make\n"
     "  -MF file     specify dependency file name\n"
@@ -121,6 +122,7 @@ static const char help2[] =
 #endif
     "-Wl,... linker options:\n"
     "  -nostdlib                     do not link with standard crt/libs\n"
+    "  -stdbase			     link with standard crt but no libraries\n"
     "  -[no-]whole-archive           load lib(s) fully/only as needed\n"
     "  -export-all-symbols           same as -rdynamic\n"
     "  -export-dynamic               same as -rdynamic\n"
