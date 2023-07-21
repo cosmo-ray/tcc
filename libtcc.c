@@ -941,6 +941,9 @@ LIBTCCAPI int tcc_set_output_type(TCCState *s, int output_type)
 # ifdef TCC_IS_NATIVE
     tcc_add_macos_sdkpath(s);
 # endif
+#elif defined TCC_TARGET_WASM
+    /* if I need to add SDK, do it here */
+    return 0;
 #else
     /* paths for crt objects */
     tcc_split_path(s, &s->crt_paths, &s->nb_crt_paths, CONFIG_TCC_CRTPREFIX);
@@ -1206,7 +1209,7 @@ ST_FUNC int tcc_add_support(TCCState *s1, const char *filename)
     return tcc_add_dll(s1, filename, AFF_PRINT_ERROR);
 }
 
-#if !defined TCC_TARGET_PE && !defined TCC_TARGET_MACHO
+#if !defined TCC_TARGET_PE && !defined TCC_TARGET_MACHO && !defined TCC_TARGET_WASM
 ST_FUNC int tcc_add_crt(TCCState *s1, const char *filename)
 {
     return tcc_add_library_internal(s1, "%s/%s",

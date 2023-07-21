@@ -262,6 +262,10 @@ static char *default_outputfile(TCCState *s, const char *first_file)
     if (s->output_type == TCC_OUTPUT_EXE)
         strcpy(ext, ".exe");
     else
+#elif defined TCC_TARGET_WASM
+    if (s->output_type == TCC_OUTPUT_EXE)
+	    strcpy(ext, ".wasm");
+    else
 #endif
     if ((s->just_deps || s->output_type == TCC_OUTPUT_OBJ) && !s->option_r && *ext)
         strcpy(ext, ".o");

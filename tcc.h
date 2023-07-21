@@ -893,6 +893,10 @@ struct TCCState {
     Section *text_section, *data_section, *rodata_section, *bss_section;
     Section *common_section;
     Section *cur_text_section; /* current section where function code is generated */
+#if defined TCC_TARGET_WASM
+    Section *global_section;
+    Section *function_section;
+#endif
 #ifdef CONFIG_TCC_BCHECK
     /* bound check related sections */
     Section *bounds_section; /* contains global data bound description */
@@ -1827,6 +1831,9 @@ ST_FUNC void tcc_add_macos_sdkpath(TCCState* s);
 ST_FUNC const char* macho_tbd_soname(const char* filename);
 #endif
 #endif
+/* ------------ tccweb.c ----------------- */
+int wasm_output_file(TCCState *s, const char *filename);
+
 /* ------------ tccrun.c ----------------- */
 #ifdef TCC_IS_NATIVE
 #ifdef CONFIG_TCC_STATIC
@@ -1971,6 +1978,16 @@ static inline void post_sem(TCCSem *p) {
 #define ST_DATA
 #endif
 /********************************************************/
+
+#if defined TCC_TARGET_WASM
+#define type_section	    rodata_section
+#define function_section    TCC_STATE_VAR(function_section)
+#define table_section	    symtab_section
+#define memory_section	    data_section
+#define global_section	    TCC_STATE_VAR(global_section)
+#define export_section	    TCC_STATE_VAR(dynsymtab_section)
+#define code_section	    data_section
+#endif
 
 #define text_section        TCC_STATE_VAR(text_section)
 #define data_section        TCC_STATE_VAR(data_section)

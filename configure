@@ -171,6 +171,8 @@ for opt do
   ;;
   --help|-h) show_help="yes"
   ;;
+  --wasm) cpu="wasm"
+  ;;
   *) echo "configure: WARNING: unrecognized option $opt"
   ;;
   esac

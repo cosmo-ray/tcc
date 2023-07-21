@@ -82,19 +82,12 @@ ST_FUNC void tccelf_new(TCCState *s)
     s->dynsymtab_section = new_symtab(s, ".dynsymtab", SHT_SYMTAB, SHF_PRIVATE|SHF_DYNSYM,
                                       ".dynstrtab",
                                       ".dynhashtab", SHF_PRIVATE);
-    get_sym_attr(s, 0, 1);
-
-    if (s->do_debug) {
-        /* add debug sections */
-        tcc_debug_new(s);
-    }
-
-#if TCC_EH_FRAME
-    if (s->output_format != TCC_OUTPUT_FORMAT_ELF)
-        s->unwind_tables = 0;
-    tcc_eh_frame_start(s);
+#ifdef TCC_TARGET_WASM
+    global_section = new_section(s, ".global", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR);
+    function_section = new_section(s, ".function", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE);
 #endif
 
+    get_sym_attr(s, 0, 1);
 #ifdef CONFIG_TCC_BCHECK
     if (s->do_bounds_check) {
         /* if bound checking, then add corresponding sections */
@@ -1805,6 +1798,10 @@ ST_FUNC void tcc_add_runtime(TCCState *s1)
 #ifndef TCC_TARGET_MACHO
         if (s1->output_type != TCC_OUTPUT_MEMORY)
             tccelf_add_crtend(s1);
+#elif defined TCC_TARGET_WASM
+	    /* add ctr */
+#else
+            tcc_add_crt(s1, "crtn.o");
 #endif
     }
 }
@@ -3034,6 +3031,8 @@ LIBTCCAPI int tcc_output_file(TCCState *s, const char *filename)
     return  pe_output_file(s, filename);
 #elif defined TCC_TARGET_MACHO
     return macho_output_file(s, filename);
+#elif TCC_TARGET_WASM
+    return wasm_output_file(s, filename);
 #else
     return elf_output_file(s, filename);
 #endif

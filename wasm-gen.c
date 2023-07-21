@@ -101,8 +101,8 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     Sym *sym;
     int func_call;
     CType *func_type = &func_sym->type;
+    int nb_args = 0;
 
-    printf("-> gfunc_prolog(func_sym)\n");
     sym = func_type->ref;
     func_call = sym->f.func_call;
     loc = 0;
@@ -112,11 +112,9 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
                  VT_LOCAL | VT_LVAL,
                  loc);
 	loc++;
-
+	nb_args++;
     }
-    printf("func_call: %d\n", func_call);
-    printf("vtop: %p\n", vtop);
-    printf("<- gfunc_prolog\n");
+    printf("gfunc_prolog %s(func_sym) [fc: %d, nargs: %d]\n", get_tok_str(func_sym->v, NULL), func_call, nb_args);
 }
 
 ST_FUNC int gfunc_sret(CType *vt, int variadic, CType *ret,
