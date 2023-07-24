@@ -31,6 +31,12 @@
 */
 ST_DATA int rsym, anon_sym, ind, loc;
 
+#if defined TCC_TARGET_WASM
+ST_DATA int type_ind;
+ST_DATA int wasm_func_ind;
+ST_DATA int wasm_type_cnt;
+#endif
+
 ST_DATA Sym *global_stack;
 ST_DATA Sym *local_stack;
 ST_DATA Sym *define_stack;

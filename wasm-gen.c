@@ -30,6 +30,7 @@
 
 #else
 
+#define USING_GLOBALS
 #include "tcc.h"
 
 ST_DATA const char * const target_machine_defs =
@@ -59,6 +60,23 @@ ST_DATA const int reg_classes[NB_REGS] = {
     1 << TREG_SP
 };
 
+#define WASM_MAX_PARAMS 256
+#define WASM_MAX_TYPES 2048
+
+struct wasm_type_info {
+    char type;
+    char ret;
+    short int nb_params;
+};
+
+struct wasm_type {
+    struct wasm_type_info ti;
+    struct wasm_type_info params[WASM_MAX_PARAMS];
+};
+
+static struct wasm_type all_types[WASM_MAX_TYPES];
+
+
 #if defined(CONFIG_TCC_BCHECK)
 static addr_t func_bound_offset;
 static unsigned long func_bound_ind;
@@ -85,14 +103,71 @@ ST_FUNC void store(int r, SValue *sv)
     printf("store(%d. sv)\n", r);
 }
 
+static void g_func(char c)
+{
+    int ind1;
+    if (nocode_wanted)
+        return;
+    ind1 = wasm_func_ind + 1;
+    if (ind1 > function_section->data_allocated)
+        section_realloc(function_section, ind1);
+    function_section->data[ind] = c;
+    wasm_func_ind = ind1;
+
+}
+
+static void g_type(char c)
+{
+    int ind1;
+    if (nocode_wanted)
+        return;
+    ind1 = type_ind + 1;
+    if (ind1 > type_section->data_allocated)
+        section_realloc(type_section, ind1);
+    type_section->data[ind] = c;
+    type_ind = ind1;
+
+}
+
+static char find_type(struct wasm_type *type)
+{
+    int i = 0;
+
+    for (i = 0; i < wasm_type_cnt; ++i) {
+	if (!memcmp(&all_types[i], type, sizeof *type))
+	    return i;
+    }
+    return -1;
+}
+
 ST_FUNC void gfunc_call(int nb_args)
 {
     int i;
+    struct wasm_type type = {0};
+    int type_idx;
+
+    type.ti.type = 60;
 
     printf("gfunc_call(%d)\n", nb_args);
     for(i = 0; i < nb_args; i++) {
-	    vtop--;
+	type.params[i].type = 0x7f;
+	vtop--;
     }
+    type_idx = find_type(&type);
+    if (type_idx < 0) {
+	type_idx = wasm_type_cnt++;
+	all_types[type_idx] = type;
+	g_type(type.ti.type);
+	g_type(type.ti.nb_params);
+	for (i = 0; i < type.ti.nb_params; ++i) {
+	    g_type(type.params[i].type);
+	}
+	if (type.ti.ret) {
+	    g_type(1);
+	    g_type(type.ti.ret);
+	}
+    }
+    g_func(type_idx);
     vtop--;
 }
 

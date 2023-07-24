@@ -1419,6 +1419,9 @@ ST_DATA Sym *define_stack;
 ST_DATA CType int_type, func_old_type, char_pointer_type;
 ST_DATA SValue *vtop;
 ST_DATA int rsym, anon_sym, ind, loc;
+#if defined TCC_TARGET_WASM
+ST_DATA int type_ind, wasm_func_ind, wasm_type_cnt;
+#endif
 ST_DATA char debug_modes;
 
 ST_DATA int nocode_wanted; /* true if no code generation wanted for an expression */
