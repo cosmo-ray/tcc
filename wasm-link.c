@@ -45,6 +45,7 @@ void relocate(TCCState *s1, ElfW_Rel *rel, int type, unsigned char *ptr,
 int gotplt_entry_type (int reloc_type)
 {
 	printf("gotplt_entry_type(%d)\n", reloc_type);
+	return 0;
 }
 
 /* Returns 1 for a code relocation, 0 for a data relocation. For unknown
@@ -52,6 +53,7 @@ int gotplt_entry_type (int reloc_type)
 int code_reloc (int reloc_type)
 {
 	printf("code_reloc(%d)\n", reloc_type);
+	return 0;
 }
 
 #endif /* ndef TARGET_DEFS_ONLY */

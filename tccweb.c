@@ -17,26 +17,34 @@
  * 10: code <- text_section
  */
 
-static int write_section(char nb, FILE *fp, Section *s)
+static int write_section(char section, FILE *fp, Section *s, unsigned char nb_stuff)
 {
 	char *len_bytes = (char *)&s->sh_size;
 	int len_len = 0;
 
-	if (len_bytes[3])
+	/* assuming less than 255 functions per file */
+	if (!s->sh_size)
+		return 0;
+	if (nb_stuff)
+		s->sh_size += 1;
+
+	/* this is broken */
+	if (len_bytes[2] || len_bytes[3])
 		len_len = 4;
-	else if (len_bytes[2])
-		len_len = 3;
 	else if (len_bytes[1])
 		len_len = 2;
 	else
 		len_len = 1;
 
 	/* fixup latter: skip section with 0 bytes */
-
-	if (fwrite(&nb, 1, 1, fp) < 0)
+	if (fwrite(&section, 1, 1, fp) < 0)
 		return -1;
 	if (fwrite(len_bytes, 1, len_len, fp) < 0)
 		return -1;
+	if (nb_stuff) {
+		if (fwrite(&nb_stuff, 1, 1, fp) < 0)
+			return -1;
+	}
 	return fwrite(s->data, 1, s->sh_size, fp);
 }
 
@@ -47,6 +55,8 @@ static int write_section(char nb, FILE *fp, Section *s)
 #define GLOBAL_SECTION_NB 0x06
 #define EXPORT_SECTION_NB 0x07
 #define CODE_SECTION_NB 0x0A
+
+#define TRY(that) do { if ((that) < 0) return -1;} while (0)
 
 int wasm_output_file(TCCState *s1, const char *filename)
 {
@@ -77,14 +87,24 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	       "code_section   %p\n",
 	       type_section, function_section, table_section, memory_section, global_section,
 	       export_section, code_section);
-	if (fwrite(magic, sizeof magic, 1, fp) < 0)
-		return -1;
-	write_section(TYPE_SECTION_NB, fp, type_section);
-	write_section(FUNCTION_SECTION_NB, fp, function_section);
-	write_section(TABLE_SECTION_NB, fp, table_section);
-	write_section(MEMORY_SECTION_NB, fp, memory_section);
-	write_section(GLOBAL_SECTION_NB, fp, global_section);
-	write_section(EXPORT_SECTION_NB, fp, export_section);
-	write_section(CODE_SECTION_NB, fp, code_section);
+	printf("code_section size: %ld %ld\n", code_section->data_offset, text_section->data_offset);
+	code_section->sh_size = code_section->data_offset;
+	type_section->sh_size = type_ind;
+	function_section->sh_size = wasm_func_ind;
+	memory_section->sh_size = mem_ind;
+	TRY(fwrite(magic, sizeof magic, 1, fp) < 0);
+	TRY(write_section(TYPE_SECTION_NB, fp, type_section, wasm_type_cnt));
+	/* assuming function section contain exactly 1 byte per function */
+	TRY(write_section(FUNCTION_SECTION_NB, fp, function_section, function_section->sh_size));
+	TRY(write_section(TABLE_SECTION_NB, fp, table_section, 0));
+	/* I guess mem should be output only in binaries */
+	printf("mem len: %ld\n", memory_section->sh_size);
+	TRY(write_section(MEMORY_SECTION_NB, fp, memory_section, 0));
+	TRY(write_section(GLOBAL_SECTION_NB, fp, global_section, 0));
+	TRY(write_section(EXPORT_SECTION_NB, fp, export_section, 0));
+	TRY(write_section(CODE_SECTION_NB, fp, code_section, 0));
+	type_ind = 0;
+	wasm_func_ind = 0;
+	mem_ind = 0;
 	return 0;
 }

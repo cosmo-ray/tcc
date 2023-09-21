@@ -1420,7 +1420,7 @@ ST_DATA CType int_type, func_old_type, char_pointer_type;
 ST_DATA SValue *vtop;
 ST_DATA int rsym, anon_sym, ind, loc;
 #if defined TCC_TARGET_WASM
-ST_DATA int type_ind, wasm_func_ind, wasm_type_cnt;
+ST_DATA int type_ind, mem_ind, wasm_func_ind, wasm_type_cnt;
 #endif
 ST_DATA char debug_modes;
 
@@ -1989,7 +1989,7 @@ static inline void post_sem(TCCSem *p) {
 #define memory_section	    data_section
 #define global_section	    TCC_STATE_VAR(global_section)
 #define export_section	    TCC_STATE_VAR(dynsymtab_section)
-#define code_section	    data_section
+#define code_section	    text_section
 #endif
 
 #define text_section        TCC_STATE_VAR(text_section)
