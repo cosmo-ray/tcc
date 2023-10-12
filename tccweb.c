@@ -19,22 +19,26 @@
 
 static int write_section(char section, FILE *fp, Section *s, unsigned char nb_stuff)
 {
-	char *len_bytes = (char *)&s->sh_size;
-	int len_len = 0;
+	int len_cp = s->sh_size;
+	char len_bytes[5] = {0};
+	char *len_bytes_ptr = len_bytes;
+	int len_len = 1;
 
 	/* assuming less than 255 functions per file */
 	if (!s->sh_size)
 		return 0;
 	if (nb_stuff)
-		s->sh_size += 1;
+		len_cp += 1;
 
-	/* this is broken */
-	if (len_bytes[2] || len_bytes[3])
-		len_len = 4;
-	else if (len_bytes[1])
-		len_len = 2;
-	else
-		len_len = 1;
+again:
+	*len_bytes_ptr = len_cp & 0x7f;
+	len_cp = (len_cp & 0xffffff80) >> 7;
+	if (len_cp > 0x7f) {
+		*len_bytes_ptr |= 0x80;
+		++len_bytes_ptr;
+		++len_len;
+		goto again;
+	}
 
 	/* fixup latter: skip section with 0 bytes */
 	if (fwrite(&section, 1, 1, fp) < 0)
@@ -45,6 +49,7 @@ static int write_section(char section, FILE *fp, Section *s, unsigned char nb_st
 		if (fwrite(&nb_stuff, 1, 1, fp) < 0)
 			return -1;
 	}
+	printf("el0: %x\n", s->data[0]);
 	return fwrite(s->data, 1, s->sh_size, fp);
 }
 
@@ -71,6 +76,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	else {
 		mode = 0777;
 	}
+	//  p *tcc_state->rodata_section
 	printf("wasm_output_file: %s\n", filename);
 	unlink(filename);
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
@@ -93,6 +99,11 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	function_section->sh_size = wasm_func_ind;
 	memory_section->sh_size = mem_ind;
 	TRY(fwrite(magic, sizeof magic, 1, fp) < 0);
+	printf("wasm_type_cnt: %d - %p\n", wasm_type_cnt, type_section);
+	for (int i = 0; i < type_section->sh_size; ++i) {
+		printf("%x", type_section->data[i]);
+	}
+	printf("\n");
 	TRY(write_section(TYPE_SECTION_NB, fp, type_section, wasm_type_cnt));
 	/* assuming function section contain exactly 1 byte per function */
 	TRY(write_section(FUNCTION_SECTION_NB, fp, function_section, function_section->sh_size));

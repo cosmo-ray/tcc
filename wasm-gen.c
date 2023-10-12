@@ -101,7 +101,7 @@ static void g_func(char c)
     printf("f section size: %d\n", wasm_func_ind);
 }
 
-static void g_type(char c)
+static void g_type(unsigned char c)
 {
     int ind1;
     if (nocode_wanted)
@@ -111,6 +111,7 @@ static void g_type(char c)
         section_realloc(type_section, ind1);
     type_section->data[type_ind] = c;
     type_ind = ind1;
+    printf("t section size: %d\n", type_ind);
 }
 
 static void g_code(char c)
@@ -324,10 +325,14 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	type_idx = wasm_type_cnt++;
 	all_types[type_idx] = type;
 	g_type(type.ti.type);
+	printf("g_type: %x- params: %d\n", type.ti.type, type.ti.nb_params);
+	printf("gtype %p el0: %x\n", type_section, type_section->data[0]);
 	g_type(type.ti.nb_params);
 	for (i = 0; i < type.ti.nb_params; ++i) {
-	    g_type(type.params[i].type);
+		printf("param type %x\n", type.params[i].type);
+		g_type(type.params[i].type);
 	}
+	g_type(type.ti.ret);
 	if (type.ti.ret) {
 	    g_type(1);
 	    g_type(type.ti.ret);

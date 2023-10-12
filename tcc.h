@@ -896,6 +896,7 @@ struct TCCState {
 #if defined TCC_TARGET_WASM
     Section *global_section;
     Section *function_section;
+    Section *type_section;
 #endif
 #ifdef CONFIG_TCC_BCHECK
     /* bound check related sections */
@@ -1983,7 +1984,7 @@ static inline void post_sem(TCCSem *p) {
 /********************************************************/
 
 #if defined TCC_TARGET_WASM
-#define type_section	    rodata_section
+#define type_section	    TCC_STATE_VAR(type_section)
 #define function_section    TCC_STATE_VAR(function_section)
 #define table_section	    symtab_section
 #define memory_section	    data_section
