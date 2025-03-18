@@ -27,6 +27,7 @@ static int write_section(char section, FILE *fp, Section *s, unsigned char nb_st
 	/* assuming less than 255 functions per file */
 	if (!s->sh_size)
 		return 0;
+
 	if (nb_stuff)
 		len_cp += 1;
 
@@ -40,7 +41,6 @@ again:
 		goto again;
 	}
 
-	/* fixup latter: skip section with 0 bytes */
 	if (fwrite(&section, 1, 1, fp) < 0)
 		return -1;
 	if (fwrite(len_bytes, 1, len_len, fp) < 0)
@@ -109,12 +109,14 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	TRY(write_section(FUNCTION_SECTION_NB, fp, function_section, function_section->sh_size));
 	TRY(write_section(TABLE_SECTION_NB, fp, table_section, 0));
 	/* I guess mem should be output only in binaries */
-	printf("mem len: %ld\n", memory_section->sh_size);
-	TRY(write_section(MEMORY_SECTION_NB, fp, memory_section, 0));
+	printf("mem len: %ld - %ld\n", memory_section->sh_size, mem_ind);
+	/* for now it seems there is always 1 mem */
+	TRY(write_section(MEMORY_SECTION_NB, fp, memory_section, 1));
 	TRY(write_section(GLOBAL_SECTION_NB, fp, global_section, 0));
 	TRY(write_section(EXPORT_SECTION_NB, fp, export_section, 0));
-	TRY(write_section(CODE_SECTION_NB, fp, code_section, 0));
+	TRY(write_section(CODE_SECTION_NB, fp, code_section, nb_func));
 	type_ind = 0;
+	nb_func = 0;
 	wasm_func_ind = 0;
 	mem_ind = 0;
 	return 0;

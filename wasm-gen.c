@@ -67,6 +67,7 @@ struct wasm_type_info {
     char type;
     char ret;
     short int nb_params;
+    short int stack_len;
 };
 
 struct wasm_type_info *cur_function;
@@ -86,7 +87,6 @@ ST_DATA int func_bound_add_epilog;
 #endif
 
 int func_size_ind;
-int wasm_func_stack_l;
 
 static void g_func(char c)
 {
@@ -130,28 +130,50 @@ static void g_code(char c)
  * a number literal in the code, take only the place it require
  * so even if it's a VT_INT, it still might need to be shrink
  */
-static void g_code_int(char *iptr)
+static void g_code_int(int i)
 {
-    g_code(*iptr);
-    if (iptr[1] || iptr[2] || iptr[3]) {
-	g_code(iptr[1]);
-	if (iptr[2] || iptr[3]) {
-	    g_code(iptr[2]);
-	    g_code(iptr[3]);
-	}
+    char len_bytes[5] = {0};
+    char cur;
+
+  again:
+    cur = i & 0x7f;
+    i = (i & 0xffffff80) >> 7;
+    if (i) {
+	cur |= 0x80;
+	g_code(cur);
+	goto again;
     }
+    g_code(cur);
 }
 
-static void g2_mem(void *bytes, int size)
+static void g_mem(char byte)
 {
     int ind1;
     if (nocode_wanted)
         return;
-    ind1 = mem_ind + size;
+    ind1 = mem_ind + 1;
     if (ind1 > mem_ind)
         section_realloc(memory_section, ind1);
-    memcpy(&memory_section->data[mem_ind], bytes, size);
+    memory_section->data[mem_ind] = byte;
     mem_ind = ind1;
+}
+
+static void g_mem_int(int i)
+{
+    char len_bytes[5] = {0};
+    char cur;
+
+  again:
+    cur = i & 0x7f;
+    i = (i & 0xffffff80) >> 7;
+    if (i) {
+	cur |= 0x80;
+	printf("i: %x - c: %x\n", i, (unsigned int)cur);
+	g_mem(cur);
+	goto again;
+    }
+    printf("i: %x - cur: %x\n", i, (unsigned)cur);
+    g_mem(cur);
 }
 
 ST_FUNC void o(unsigned int c)
@@ -189,11 +211,11 @@ ST_FUNC void load(int r, SValue *sv)
     uint32_t or = sv->r & VT_VALMASK;
     CType t = sv->type;
 
-    printf("load(%d, sv)\n", r);
+    printf("==== load(%d, sv)=====\n", r);
     printf("sv: %ld ", sv->c.i);
     printf("r: %x\n", r);
-    printf("SV->R: ");
-    print_r_mask(sv->r, t);
+    printf("SV->R:");
+    //print_r_mask(sv->r, t);
     if (vtop[-1].sym) {
 	    printf("(%p - %ld - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL));
     } else {
@@ -201,11 +223,17 @@ ST_FUNC void load(int r, SValue *sv)
     }
     printf("\n");
     if (or == VT_CONST) {
+	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
+	printf("cur func: %d\n", cur_function->nb_params);
+
 	/* load const into mem */
 	/* sv->c.i value if VT_INT */
 	if (((t.t & VT_BTYPE) == VT_INT)) {
-	    g_code_int(&sv->c.i);
 	    g_code(0x41);
+	    g_code_int(sv->c.i);
+	    g_code(0x21);
+	    g_code_int(cur_function->stack_len++);
+	    printf("need to store at %d\n", local_idx);
 	}
     }
 
@@ -220,7 +248,7 @@ ST_FUNC void store(int r, SValue *sv)
     printf("store(%d. sv)\n", r);
     printf("sv: %ld ", sv->c.i);
     printf("SV->R: ");
-    print_r_mask(sv->r, sv->type);
+    //print_r_mask(sv->r, sv->type);
     if (vtop[-1].sym) {
 	    printf("(%p - %ld - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL));
     } else {
@@ -229,7 +257,10 @@ ST_FUNC void store(int r, SValue *sv)
     if (or == VT_LOCAL) {
 	/* load const into mem */
 	/* sv->c.i value if VT_INT */
-	int local_idx = cur_function->nb_params + 1 + (-1 * (sv->c.i / 4));
+	/* if there is 2  param, then param at index 2, is the first non param argument*/
+	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
+	printf("nb param: %d\n", cur_function->nb_params);
+	printf("sv->c.i: %d\n", sv->c.i);
 	printf("store wasm stack index: %d\n",
 	       cur_function->nb_params + 1 + (-1 * (sv->c.i / 4)));
 	if (((t.t & VT_BTYPE) == VT_INT)) {
@@ -238,10 +269,10 @@ ST_FUNC void store(int r, SValue *sv)
 	    printf("store int !");
 	    /* g_code_int(&sv->c.i); */
 	    g_code(0x20); // local get
-	    g_code_int(&local_idx); // local index
+	    g_code_int(local_idx); // local index
 	    g_code(0x36); // store instruction
 	    g_code(0); // store alignement
-	    g_code_int(&tmp); // store offset
+	    g_code_int(tmp); // store offset
 	}
     } else if (or == VT_CONST) {
 	printf("or == VT_CONST\n");
@@ -284,11 +315,10 @@ void init_mem(void)
 {
     int tmp = 0x01;
 
-    g2_mem(&tmp, 1); /* mumbers of memories */
-    g2_mem(&tmp, 1); /* flags (same as emcc, don't know what it is) */
+    g_mem(tmp); /* flags (same as emcc, don't know what it is) */
     /* steal thoses V value from emcc */
-    g2_mem(&memory_limit, 2); /* initial limit */
-    g2_mem(&memory_limit, 2); /* max limit */
+    g_mem_int(memory_limit); /* initial limit */
+    g_mem_int(memory_limit); /* max limit */
 }
 
 ST_FUNC void gfunc_prolog(Sym *func_sym)
@@ -320,6 +350,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	nb_args++;
     }
     type.ti.nb_params = nb_args;
+    type.ti.stack_len = nb_args;
     type_idx = find_type(&type);
     if (type_idx < 0) {
 	type_idx = wasm_type_cnt++;
@@ -344,6 +375,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     func_size_ind = ind;
     g_code(0); /* size pos, to fixup at epilog */
     g_code(0); /* number of local aruments (local decl count), need to be fixup too */
+    ++nb_func;
 
     printf("gfunc_prolog %s(func_sym) [fc: %d, nargs: %d]\n", get_tok_str(func_sym->v, NULL), func_call, nb_args);
 }
@@ -417,7 +449,7 @@ ST_FUNC void gen_opi(int op)
 
     printf("gen_opi(%d - '%c')\n", op, op);
     printf("vtop -1 r (%x): ", vtop[-1].type.t);
-    print_r_mask(vtop[-1].r, arg0_t);
+    // print_r_mask(vtop[-1].r, arg0_t);
     printf("vtop -1: %lx - %ld ", vtop[-1].c.i, vtop[-1].c.i);
     if (vtop[-1].sym) {
 	printf("(%p - %ld - %s)\n", vtop[-1].sym, vtop[-1].sym ? vtop[-1].sym->c : -1, get_tok_str(vtop[-1].sym->v, NULL));
@@ -425,7 +457,7 @@ ST_FUNC void gen_opi(int op)
 	printf("(ny sym)\n");
     }
     printf("vtop 0 r (%x): ", vtop[0].type.t);
-    print_r_mask(vtop[0].r, arg0_t);
+    // print_r_mask(vtop[0].r, arg0_t);
 
     printf("vtop 0: %lx - %ld ", vtop[0].c.i, vtop[0].c.i);
     if (vtop[0].sym) {
