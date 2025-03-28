@@ -1715,6 +1715,7 @@ ST_FUNC void tccelf_add_crtbegin(TCCState *s1)
         tcc_add_crt(s1, "crtbegin_so.o");
     else
         tcc_add_crt(s1, "crtbegin_dynamic.o");
+#elif TCC_TARGET_WASM
 #else
     if (s1->output_type != TCC_OUTPUT_DLL)
         tcc_add_crt(s1, "crt1.o");
@@ -1740,6 +1741,7 @@ ST_FUNC void tccelf_add_crtend(TCCState *s1)
         tcc_add_crt(s1, "crtend_so.o");
     else
         tcc_add_crt(s1, "crtend_android.o");
+#elif TCC_TARGET_WASM
 #else
     tcc_add_crt(s1, "crtn.o");
 #endif

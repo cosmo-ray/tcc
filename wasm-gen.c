@@ -132,7 +132,6 @@ static void g_code(char c)
  */
 static void g_code_int(int i)
 {
-    char len_bytes[5] = {0};
     char cur;
 
   again:
@@ -160,7 +159,6 @@ static void g_mem(char byte)
 
 static void g_mem_int(int i)
 {
-    char len_bytes[5] = {0};
     char cur;
 
   again:
@@ -217,7 +215,7 @@ ST_FUNC void load(int r, SValue *sv)
     printf("SV->R:");
     //print_r_mask(sv->r, t);
     if (vtop[-1].sym) {
-	    printf("(%p - %ld - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL));
+	    printf("(%p - %d - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL));
     } else {
 	    printf("(ny sym)\n");
     }
@@ -250,7 +248,7 @@ ST_FUNC void store(int r, SValue *sv)
     printf("SV->R: ");
     //print_r_mask(sv->r, sv->type);
     if (vtop[-1].sym) {
-	    printf("(%p - %ld - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL));
+	    printf("(%p - %d - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL));
     } else {
 	    printf("(ny sym)\n");
     }
@@ -260,8 +258,8 @@ ST_FUNC void store(int r, SValue *sv)
 	/* if there is 2  param, then param at index 2, is the first non param argument*/
 	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
 	printf("nb param: %d\n", cur_function->nb_params);
-	printf("sv->c.i: %d\n", sv->c.i);
-	printf("store wasm stack index: %d\n",
+	printf("sv->c.i: %ld\n", sv->c.i);
+	printf("store wasm stack index: %ld\n",
 	       cur_function->nb_params + 1 + (-1 * (sv->c.i / 4)));
 	if (((t.t & VT_BTYPE) == VT_INT)) {
 	    int tmp = sv->c.i * -1;
@@ -369,7 +367,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	    g_type(type.ti.ret);
 	}
     }
-    cur_function = &all_types[type_idx];
+    cur_function = (void *)&all_types[type_idx];
     g_func(type_idx);
 
     func_size_ind = ind;
@@ -444,15 +442,15 @@ ST_FUNC int gjmp_append(int n, int t)
 ST_FUNC void gen_opi(int op)
 {
     int d = get_reg(RC_INT);
-    CType arg0_t = vtop[-1].type;
-    CType arg1_t = vtop[0].type;
+    /* CType arg0_t = vtop[-1].type; */
+    /* CType arg1_t = vtop[0].type; */
 
     printf("gen_opi(%d - '%c')\n", op, op);
     printf("vtop -1 r (%x): ", vtop[-1].type.t);
     // print_r_mask(vtop[-1].r, arg0_t);
     printf("vtop -1: %lx - %ld ", vtop[-1].c.i, vtop[-1].c.i);
     if (vtop[-1].sym) {
-	printf("(%p - %ld - %s)\n", vtop[-1].sym, vtop[-1].sym ? vtop[-1].sym->c : -1, get_tok_str(vtop[-1].sym->v, NULL));
+	    printf("(%p - %ld - %s)\n", vtop[-1].sym, vtop[-1].sym ? vtop[-1].sym->c : -1L, get_tok_str(vtop[-1].sym->v, NULL));
     } else {
 	printf("(ny sym)\n");
     }
@@ -461,7 +459,7 @@ ST_FUNC void gen_opi(int op)
 
     printf("vtop 0: %lx - %ld ", vtop[0].c.i, vtop[0].c.i);
     if (vtop[0].sym) {
-	printf("(%p - %ld - %s)\n", vtop[0].sym, vtop[0].sym ? vtop[0].sym->c : 0, get_tok_str(vtop[0].sym->v, NULL));
+	printf("(%p - %ld - %s)\n", vtop[0].sym, vtop[0].sym ? vtop[0].sym->c : 0L, get_tok_str(vtop[0].sym->v, NULL));
     } else {
 	printf("(no sym)\n");
     }

@@ -650,6 +650,7 @@ for v in $cpu $confvars ; do
     # CPU
     CONFIG_i386=yes)        print_num TCC_TARGET_I386 1 ;;
     CONFIG_x86_64=yes)      print_num TCC_TARGET_X86_64 1 ;;
+    CONFIG_wasm=yes)        print_num TCC_TARGET_WASM 1 ;;
     CONFIG_arm64=yes)       print_num TCC_TARGET_ARM64 1 ;;
     CONFIG_riscv64=yes)     print_num TCC_TARGET_RISCV64 1 ;;
     CONFIG_arm=yes)         print_num TCC_TARGET_ARM 1
