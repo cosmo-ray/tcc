@@ -68,6 +68,10 @@ struct wasm_type_info {
     char ret;
     short int nb_params;
     short int stack_len;
+    short int nb_i32;
+    short int nb_i64;
+    short int nb_f32;
+    short int nb_f64;
 };
 
 struct wasm_type_info *cur_function;
@@ -231,6 +235,7 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code_int(sv->c.i);
 	    g_code(0x21);
 	    g_code_int(cur_function->stack_len++);
+	    cur_function->nb_i32++;
 	    printf("need to store at %d\n", local_idx);
 	}
     }
@@ -340,11 +345,29 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     loc = 0;
     func_vc = 0;
     while ((sym = sym->next) != NULL) {
+	CType *t;
+	int bt;
+
+	t = &sym->type;
+	bt = t->t & VT_BTYPE;
+
 	sym_push(sym->v & ~SYM_FIELD, &sym->type,
                  VT_LOCAL | VT_LVAL,
                  loc);
 	loc++;
-	type.params[nb_args].type = 0x7f;
+	if (bt == VT_FLOAT) {
+	    type.ti.nb_f32++;
+	    type.params[nb_args].type = 0x7d;
+	} else if (bt == VT_DOUBLE) {
+	    type.ti.nb_f64++;
+	    type.params[nb_args].type = 0x7c;
+	} else if (bt == VT_LLONG) {
+	    type.ti.nb_i64++;
+	    type.params[nb_args].type = 0x7e;
+	} else {
+	    type.ti.nb_i32++;
+	    type.params[nb_args].type = 0x7f;
+	}
 	nb_args++;
     }
     type.ti.nb_params = nb_args;
@@ -372,7 +395,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 
     func_size_ind = ind;
     g_code(0); /* size pos, to fixup at epilog */
-    g_code(0); /* number of local aruments (local decl count), need to be fixup too */
+    g_code(0); /* nb locals, to fixup at epilog */
     ++nb_func;
 
     printf("gfunc_prolog %s(func_sym) [fc: %d, nargs: %d]\n", get_tok_str(func_sym->v, NULL), func_call, nb_args);
@@ -393,6 +416,7 @@ ST_FUNC void arch_transfer_ret_regs(int aftercall)
 ST_FUNC void gfunc_epilog(void)
 {
     int func_size;
+    int func_nb_local = cur_function->stack_len;
 
     printf("gfunc_epilog()\n");
     printf("vtop: %p\n", vtop);
@@ -403,7 +427,38 @@ ST_FUNC void gfunc_epilog(void)
 	/* too fixup: memmove all fucntion byte code */
 	return;
     }
-    code_section->data[func_size_ind] = func_size;
+    if (func_nb_local) {
+	    printf("func_nb_local %d\n", func_nb_local);
+	    int nb_types = 0 + cur_function->nb_i32 ? 1 : 0 + cur_function->nb_i64 ? 1 : 0
+		+ cur_function->nb_f64 ? 1 : 0 + cur_function->nb_f32 ? 1 : 0;
+	    int code_tot_size = ind + nb_types * 2;
+	    int i, i2 = 2;
+
+	    if (code_tot_size > code_section->data_allocated)
+		    section_realloc(code_section, code_tot_size);
+	    memmove(&code_section->data[func_size_ind + 2 + nb_types * 2],
+		    &code_section->data[func_size_ind + 2], func_size);
+	    code_section->data[func_size_ind + 1] = func_nb_local;
+
+#define PUSH_LOC(what, byte)						\
+	    if (cur_function->nb_##what) {				\
+		code_section->data[func_size_ind + i2] = cur_function->nb_i32; \
+		++i2;							\
+		code_section->data[func_size_ind + i2] = byte;		\
+	    }
+
+	    PUSH_LOC(i32, 0x7f);
+	    PUSH_LOC(i64, 0x7e);
+	    PUSH_LOC(f32, 0x7d);
+	    PUSH_LOC(f64, 0x7c);
+
+#undef PUSH_LOC
+
+	    code_section->data[func_size_ind] = func_size + nb_types * 2;
+	    ind += nb_types * 2;
+    } else {
+	    code_section->data[func_size_ind] = func_size;
+    }
 }
 
 ST_FUNC void gen_va_start(void)
