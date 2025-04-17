@@ -438,7 +438,7 @@ ST_FUNC void gfunc_epilog(void)
 		    section_realloc(code_section, code_tot_size);
 	    memmove(&code_section->data[func_size_ind + 2 + nb_types * 2],
 		    &code_section->data[func_size_ind + 2], func_size);
-	    code_section->data[func_size_ind + 1] = func_nb_local;
+	    code_section->data[func_size_ind + 1] = nb_types;
 
 #define PUSH_LOC(what, byte)						\
 	    if (cur_function->nb_##what) {				\
