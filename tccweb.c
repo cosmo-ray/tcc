@@ -96,6 +96,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	printf("code_section size: %ld %ld\n", code_section->data_offset, text_section->data_offset);
 	code_section->sh_size = code_section->data_offset;
 	type_section->sh_size = type_ind;
+	export_section->sh_size = export_ind;
 	function_section->sh_size = wasm_func_ind;
 	memory_section->sh_size = mem_ind;
 	TRY(fwrite(magic, sizeof magic, 1, fp) < 0);
@@ -113,7 +114,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	/* for now it seems there is always 1 mem */
 	TRY(write_section(MEMORY_SECTION_NB, fp, memory_section, 1));
 	TRY(write_section(GLOBAL_SECTION_NB, fp, global_section, 0));
-	TRY(write_section(EXPORT_SECTION_NB, fp, export_section, 0));
+	TRY(write_section(EXPORT_SECTION_NB, fp, export_section, nb_export));
 	TRY(write_section(CODE_SECTION_NB, fp, code_section, nb_func));
 	type_ind = 0;
 	nb_func = 0;

@@ -1421,7 +1421,7 @@ ST_DATA CType int_type, func_old_type, char_pointer_type;
 ST_DATA SValue *vtop;
 ST_DATA int rsym, anon_sym, ind, loc;
 #if defined TCC_TARGET_WASM
-ST_DATA int type_ind, mem_ind, wasm_func_ind, wasm_type_cnt, nb_func;
+ST_DATA int type_ind, mem_ind, wasm_func_ind, wasm_type_cnt, nb_func, export_ind, nb_export;
 #endif
 ST_DATA char debug_modes;
 

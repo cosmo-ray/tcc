@@ -130,6 +130,18 @@ static void g_code(char c)
     ind = ind1;
 }
 
+static void g_export(char c)
+{
+    int ind1;
+    if (nocode_wanted)
+        return;
+    ind1 = export_ind + 1;
+    if (ind1 > export_section->data_allocated)
+        section_realloc(export_section, ind1);
+    export_section->data[export_ind] = c;
+    export_ind = ind1;
+}
+
 /*
  * a number literal in the code, take only the place it require
  * so even if it's a VT_INT, it still might need to be shrink
@@ -333,6 +345,20 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     struct wasm_type type = {0};
     int type_idx;
     int i;
+    char *tmp;
+
+
+    char *to_export = get_tok_str(func_sym->v, 0);
+
+    g_export(strlen(to_export));
+    for (; *to_export; ++to_export)
+	    g_export(*to_export);
+    g_export(0);
+    ++nb_export;
+    g_export(nb_func);
+// push get_tok_str(func_sym->v, 0) in export func
+    // write_section()
+
 
     if (!mem_ind) {
 	printf("init mem\n");
