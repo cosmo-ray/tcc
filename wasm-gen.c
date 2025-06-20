@@ -30,6 +30,14 @@
 
 #else
 
+enum {
+	LOCAL_GET = 0x20,
+	LOCAL_SET = 0x21,
+	I32_STORE = 0x36,
+	I64_STORE = 0x37,
+	I32_CONST = 0x41
+} wasm_instructions;
+
 #define USING_GLOBALS
 #include "tcc.h"
 
@@ -243,9 +251,9 @@ ST_FUNC void load(int r, SValue *sv)
 	/* load const into mem */
 	/* sv->c.i value if VT_INT */
 	if (((t.t & VT_BTYPE) == VT_INT)) {
-	    g_code(0x41);
+	    g_code(I32_CONST);
 	    g_code_int(sv->c.i);
-	    g_code(0x21);
+	    g_code(LOCAL_SET);
 	    g_code_int(cur_function->stack_len++);
 	    cur_function->nb_i32++;
 	    printf("need to store at %d\n", local_idx);
@@ -283,9 +291,9 @@ ST_FUNC void store(int r, SValue *sv)
 
 	    printf("store int !");
 	    /* g_code_int(&sv->c.i); */
-	    g_code(0x20); // local get
+	    g_code(LOCAL_GET); // local get
 	    g_code_int(local_idx); // local index
-	    g_code(0x36); // store instruction
+	    g_code(I32_STORE); // store instruction
 	    g_code(0); // store alignement
 	    g_code_int(tmp); // store offset
 	}
