@@ -324,7 +324,7 @@ ST_FUNC void gfunc_call(int nb_args)
     vtop--;
 }
 
-int memory_limit = 0x8002;
+int memory_limit = 0x7000;
 
 void init_mem(void)
 {

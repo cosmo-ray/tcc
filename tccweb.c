@@ -70,6 +70,9 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	int fd;
 	FILE *fp;
 	char magic[8] = {0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00};
+	int filename_l = strlen(filename);
+	char *wasm_file = NULL;
+	int ret = -1;
 
 	if (file_type == TCC_OUTPUT_OBJ)
 		mode = 0666;
@@ -77,12 +80,42 @@ int wasm_output_file(TCCState *s1, const char *filename)
 		mode = 0777;
 	}
 	//  p *tcc_state->rodata_section
-	printf("wasm_output_file: %s\n", filename);
-	unlink(filename);
-	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
+	if (filename_l > 3 && !strcmp(&filename[filename_l - 3], ".js")) {
+		char js_p0[] = "const fs = require('fs');\n"
+			"const buf = fs.readFileSync('./";
+		char js_p1[] =
+			"');\n"
+			"const lib = WebAssembly.instantiate(new Uint8Array(buf)).\n"
+			"then(res => {\n"
+			"\tfor (var i=1;i<=10;i++) {\n"
+			"\tlet r = res.instance.exports.";
+		char js_p2[] ="(i, i+1)\n"
+			"console.log(\"The factorial of \"+i+\" = \"+r)\n"
+			"\t}\n"
+			"});\n";
+		fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
+		if (fd < 0 || (fp = fdopen(fd, "wb")) == NULL) {
+			tcc_error_noabort("could not write '%s: %s'", filename,
+					  strerror(errno));
+			return -1;
+		}
+		wasm_file = tcc_malloc(filename_l + 2);
+		strncpy(wasm_file, filename, filename_l - 3);
+		strcpy(wasm_file + filename_l - 3, ".wasm");
+		fwrite(js_p0, sizeof js_p0 -1, 1, fp);
+		fwrite(wasm_file, filename_l + 2, 1, fp);
+		fwrite(js_p1, sizeof js_p1 -1, 1, fp);
+		fwrite("aB", 2, 1, fp);
+		fwrite(js_p2, sizeof js_p2 -1, 1, fp);
+	} else {
+		wasm_file = filename;
+	}
+	printf("wasm_output_file: %s - %s\n", filename, &filename[filename_l - 3]);
+	unlink(wasm_file);
+	fd = open(wasm_file, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
 	if (fd < 0 || (fp = fdopen(fd, "wb")) == NULL) {
-		tcc_error_noabort("could not write '%s: %s'", filename, strerror(errno));
-		return -1;
+		tcc_error_noabort("could not write '%s: %s'", wasm_file, strerror(errno));
+		goto out;
 	}
 	printf("type_section: %p\n"
 	       "funtions_section %p\n"
@@ -120,5 +153,9 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	nb_func = 0;
 	wasm_func_ind = 0;
 	mem_ind = 0;
-	return 0;
+	ret = 1;
+out:
+	if (wasm_file != filename)
+		tcc_free(wasm_file);
+	return ret;
 }
