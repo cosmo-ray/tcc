@@ -30,13 +30,23 @@
 
 #else
 
-enum {
+enum wasm_instructions {
 	LOCAL_GET = 0x20,
 	LOCAL_SET = 0x21,
 	I32_STORE = 0x36,
 	I64_STORE = 0x37,
-	I32_CONST = 0x41
-} wasm_instructions;
+	I32_CONST = 0x41,
+	I32_ADD = 0x6a,
+	I32_SUB = 0x6b,
+	I32_MUL = 0x6c
+};
+
+enum wasm_type {
+	WASM_FLOAT_64 = 0x7c,
+	WASM_FLOAT_32 = 0x7d,
+	WASM_INT_64 = 0x7e,
+	WASM_INT_32 = 0x7f
+};
 
 #define USING_GLOBALS
 #include "tcc.h"
@@ -110,7 +120,6 @@ static void g_func(char c)
         section_realloc(function_section, ind1);
     function_section->data[wasm_func_ind] = c;
     wasm_func_ind = ind1;
-    printf("f section size: %d\n", wasm_func_ind);
 }
 
 static void g_type(unsigned char c)
@@ -123,7 +132,6 @@ static void g_type(unsigned char c)
         section_realloc(type_section, ind1);
     type_section->data[type_ind] = c;
     type_ind = ind1;
-    printf("t section size: %d\n", type_ind);
 }
 
 static void g_code(char c)
@@ -190,11 +198,9 @@ static void g_mem_int(int i)
     i = (i & 0xffffff80) >> 7;
     if (i) {
 	cur |= 0x80;
-	printf("i: %x - c: %x\n", i, (unsigned int)cur);
 	g_mem(cur);
 	goto again;
     }
-    printf("i: %x - cur: %x\n", i, (unsigned)cur);
     g_mem(cur);
 }
 
@@ -234,19 +240,19 @@ ST_FUNC void load(int r, SValue *sv)
     CType t = sv->type;
 
     printf("==== load(%d, sv)=====\n", r);
-    printf("sv: %ld ", sv->c.i);
-    printf("r: %x\n", r);
-    printf("SV->R:");
+    /* printf("sv: %ld ", sv->c.i); */
+    /* printf("r: %x\n", r); */
+    /* printf("SV->R:"); */
     //print_r_mask(sv->r, t);
-    if (vtop[-1].sym) {
-	    printf("(%p - %d - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL));
-    } else {
-	    printf("(ny sym)\n");
-    }
+    /* if (vtop[-1].sym) { */
+    /* 	    printf("(%p - %d - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL)); */
+    /* } else { */
+    /* 	    printf("(ny sym)\n"); */
+    /* } */
     printf("\n");
     if (or == VT_CONST) {
 	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
-	printf("cur func: %d\n", cur_function->nb_params);
+	/* printf("cur func: %d\n", cur_function->nb_params); */
 
 	/* load const into mem */
 	/* sv->c.i value if VT_INT */
@@ -256,7 +262,7 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code(LOCAL_SET);
 	    g_code_int(cur_function->stack_len++);
 	    cur_function->nb_i32++;
-	    printf("need to store at %d\n", local_idx);
+	    /* printf("need to store at %d\n", local_idx); */
 	}
     }
 
@@ -268,7 +274,7 @@ ST_FUNC void store(int r, SValue *sv)
     uint32_t or = sv->r & VT_VALMASK;
     CType t = sv->type;
 
-    printf("store(%d. sv)\n", r);
+    printf("---- store(%d. sv) ----\n", r);
     printf("sv: %ld ", sv->c.i);
     printf("SV->R: ");
     //print_r_mask(sv->r, sv->type);
@@ -369,7 +375,6 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 
 
     if (!mem_ind) {
-	printf("init mem\n");
 	init_mem();
     }
     type.ti.type = 0x60;
@@ -391,16 +396,16 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	loc++;
 	if (bt == VT_FLOAT) {
 	    type.ti.nb_f32++;
-	    type.params[nb_args].type = 0x7d;
+	    type.params[nb_args].type = WASM_FLOAT_32;
 	} else if (bt == VT_DOUBLE) {
 	    type.ti.nb_f64++;
-	    type.params[nb_args].type = 0x7c;
+	    type.params[nb_args].type = WASM_FLOAT_64;
 	} else if (bt == VT_LLONG) {
 	    type.ti.nb_i64++;
-	    type.params[nb_args].type = 0x7e;
+	    type.params[nb_args].type = WASM_INT_64;
 	} else {
 	    type.ti.nb_i32++;
-	    type.params[nb_args].type = 0x7f;
+	    type.params[nb_args].type = WASM_INT_32;
 	}
 	nb_args++;
     }
@@ -432,7 +437,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     g_code(0); /* nb locals, to fixup at epilog */
     ++nb_func;
 
-    printf("gfunc_prolog %s(func_sym) [fc: %d, nargs: %d]\n", get_tok_str(func_sym->v, NULL), func_call, nb_args);
+    printf("========= gfunc_prolog %s(func_sym) [fc: %d, nargs: %d] =======\n", get_tok_str(func_sym->v, NULL), func_call, nb_args);
 }
 
 ST_FUNC int gfunc_sret(CType *vt, int variadic, CType *ret,
@@ -452,8 +457,7 @@ ST_FUNC void gfunc_epilog(void)
     int func_size;
     int func_nb_local = cur_function->stack_len;
 
-    printf("gfunc_epilog()\n");
-    printf("vtop: %p\n", vtop);
+    printf("^^^^ gfunc_epilog() ^^^^^\n");
     func_size = ind - func_size_ind;
     g_code(0x0b);
     if (func_size > 255) {
@@ -481,10 +485,10 @@ ST_FUNC void gfunc_epilog(void)
 		code_section->data[func_size_ind + i2] = byte;		\
 	    }
 
-	    PUSH_LOC(i32, 0x7f);
-	    PUSH_LOC(i64, 0x7e);
-	    PUSH_LOC(f32, 0x7d);
-	    PUSH_LOC(f64, 0x7c);
+	    PUSH_LOC(i32, WASM_INT_32);
+	    PUSH_LOC(i64, WASM_INT_64);
+	    PUSH_LOC(f32, WASM_FLOAT_32);
+	    PUSH_LOC(f64, WASM_FLOAT_64);
 
 #undef PUSH_LOC
 
@@ -534,7 +538,7 @@ ST_FUNC void gen_opi(int op)
     /* CType arg0_t = vtop[-1].type; */
     /* CType arg1_t = vtop[0].type; */
 
-    printf("gen_opi(%d - '%c')\n", op, op);
+    printf("------ gen_opi(%d - '%c') ------ \n", op, op);
     printf("vtop -1 r (%x): ", vtop[-1].type.t);
     // print_r_mask(vtop[-1].r, arg0_t);
     printf("vtop -1: %lx - %ld ", vtop[-1].c.i, vtop[-1].c.i);
@@ -556,7 +560,7 @@ ST_FUNC void gen_opi(int op)
     printf("%x - %x\n", vtop[-1].r, vtop[0].r);
     switch (op) {
     case '+':
-	    g_code(0x6a);
+	    g_code(I32_ADD);
 	    break;
     default:
 	    printf("%d - '%c' unimplemented\n", op, op);

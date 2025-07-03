@@ -49,7 +49,6 @@ again:
 		if (fwrite(&nb_stuff, 1, 1, fp) < 0)
 			return -1;
 	}
-	printf("el0: %x\n", s->data[0]);
 	return fwrite(s->data, 1, s->sh_size, fp);
 }
 
@@ -110,23 +109,22 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	} else {
 		wasm_file = filename;
 	}
-	printf("wasm_output_file: %s - %s\n", filename, &filename[filename_l - 3]);
 	unlink(wasm_file);
 	fd = open(wasm_file, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
 	if (fd < 0 || (fp = fdopen(fd, "wb")) == NULL) {
 		tcc_error_noabort("could not write '%s: %s'", wasm_file, strerror(errno));
 		goto out;
 	}
-	printf("type_section: %p\n"
-	       "funtions_section %p\n"
-	       "tables_section %p\n"
-	       "memory_section %p\n"
-	       "global_section %p\n"
-	       "export_section %p\n"
-	       "code_section   %p\n",
-	       type_section, function_section, table_section, memory_section, global_section,
-	       export_section, code_section);
-	printf("code_section size: %ld %ld\n", code_section->data_offset, text_section->data_offset);
+	/* printf("type_section: %p\n" */
+	/*        "funtions_section %p\n" */
+	/*        "tables_section %p\n" */
+	/*        "memory_section %p\n" */
+	/*        "global_section %p\n" */
+	/*        "export_section %p\n" */
+	/*        "code_section   %p\n", */
+	/*        type_section, function_section, table_section, memory_section, global_section, */
+	/*        export_section, code_section); */
+	/* printf("code_section size: %ld %ld\n", code_section->data_offset, text_section->data_offset); */
 	code_section->sh_size = code_section->data_offset;
 	type_section->sh_size = type_ind;
 	export_section->sh_size = export_ind;
