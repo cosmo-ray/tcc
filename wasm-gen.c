@@ -41,7 +41,7 @@ enum wasm_instructions {
 	I32_MUL = 0x6c
 };
 
-enum wasm_type {
+enum wasm_type_instruction {
 	WASM_FLOAT_64 = 0x7c,
 	WASM_FLOAT_32 = 0x7d,
 	WASM_INT_64 = 0x7e,
@@ -234,6 +234,7 @@ void print_r_mask(uint32_t r, CType t)
 }
 
 /* store something into wasm stack */
+/* to store a variable from a local to was stack, use local.get */
 ST_FUNC void load(int r, SValue *sv)
 {
     uint32_t or = sv->r & VT_VALMASK;
@@ -259,16 +260,13 @@ ST_FUNC void load(int r, SValue *sv)
 	if (((t.t & VT_BTYPE) == VT_INT)) {
 	    g_code(I32_CONST);
 	    g_code_int(sv->c.i);
-	    g_code(LOCAL_SET);
-	    g_code_int(cur_function->stack_len++);
-	    cur_function->nb_i32++;
 	    /* printf("need to store at %d\n", local_idx); */
 	}
     }
 
 }
 
-/* store thing from wasm stack into emulated stack (aka memory)  */
+/* store thing from wasm stack into wasm local  */
 ST_FUNC void store(int r, SValue *sv)
 {
     uint32_t or = sv->r & VT_VALMASK;
@@ -284,7 +282,7 @@ ST_FUNC void store(int r, SValue *sv)
 	    printf("(ny sym)\n");
     }
     if (or == VT_LOCAL) {
-	/* load const into mem */
+	/* load stack into local */
 	/* sv->c.i value if VT_INT */
 	/* if there is 2  param, then param at index 2, is the first non param argument*/
 	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
@@ -293,15 +291,12 @@ ST_FUNC void store(int r, SValue *sv)
 	printf("store wasm stack index: %ld\n",
 	       cur_function->nb_params + 1 + (-1 * (sv->c.i / 4)));
 	if (((t.t & VT_BTYPE) == VT_INT)) {
-	    int tmp = sv->c.i * -1;
-
 	    printf("store int !");
 	    /* g_code_int(&sv->c.i); */
-	    g_code(LOCAL_GET); // local get
+	    g_code(LOCAL_SET); // local set
 	    g_code_int(local_idx); // local index
-	    g_code(I32_STORE); // store instruction
-	    g_code(0); // store alignement
-	    g_code_int(tmp); // store offset
+	    cur_function->stack_len++;
+	    cur_function->nb_i32++;
 	}
     } else if (or == VT_CONST) {
 	printf("or == VT_CONST\n");
@@ -423,12 +418,28 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 		printf("param type %x\n", type.params[i].type);
 		g_type(type.params[i].type);
 	}
-	g_type(type.ti.ret);
-	if (type.ti.ret) {
-	    g_type(1);
-	    g_type(type.ti.ret);
-	}
     }
+
+    if ((func_vt.t & VT_BTYPE) == VT_VOID) {
+	    g_type(0);
+    } else {
+	    g_type(1);
+	    switch (func_vt.t & VT_BTYPE) {
+	    case VT_INT:
+		    g_type(WASM_INT_32);
+		    break;
+	    case VT_LLONG:
+		    g_type(WASM_INT_64);
+		    break;
+	    case VT_FLOAT:
+		    g_type(WASM_FLOAT_32);
+		    break;
+	    case VT_DOUBLE:
+		    g_type(WASM_FLOAT_64);
+		    break;
+	    }
+    }
+
     cur_function = (void *)&all_types[type_idx];
     g_func(type_idx);
 
@@ -466,7 +477,6 @@ ST_FUNC void gfunc_epilog(void)
 	return;
     }
     if (func_nb_local) {
-	    printf("func_nb_local %d\n", func_nb_local);
 	    int nb_types = 0 + cur_function->nb_i32 ? 1 : 0 + cur_function->nb_i64 ? 1 : 0
 		+ cur_function->nb_f64 ? 1 : 0 + cur_function->nb_f32 ? 1 : 0;
 	    int code_tot_size = ind + nb_types * 2;
@@ -534,6 +544,12 @@ ST_FUNC int gjmp_append(int n, int t)
 
 ST_FUNC void gen_opi(int op)
 {
+    /*
+     * NOTE: vtop[-1/0] are the 2 "thing"" on which i should do operations
+     * it contain .r, which tell me the type, if they are constant, or a variable
+     * if vtop->c contain a constant value, so i contain the int
+     * otherwise, I need to use gv()/gv2() to convert vtop[0].r into a register location
+     */
     int d = get_reg(RC_INT);
     /* CType arg0_t = vtop[-1].type; */
     /* CType arg1_t = vtop[0].type; */
