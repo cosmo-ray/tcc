@@ -262,6 +262,9 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code_int(sv->c.i);
 	    /* printf("need to store at %d\n", local_idx); */
 	}
+    } else {
+	    g_code(LOCAL_GET); // local set
+	    g_code_int(sv->c.i); // local index
     }
 
 }
@@ -574,6 +577,7 @@ ST_FUNC void gen_opi(int op)
     }
 
     printf("%x - %x\n", vtop[-1].r, vtop[0].r);
+    gv2(RC_INT, RC_INT);
     switch (op) {
     case '+':
 	    g_code(I32_ADD);
