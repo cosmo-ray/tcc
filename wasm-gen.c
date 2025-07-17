@@ -240,7 +240,7 @@ ST_FUNC void load(int r, SValue *sv)
     uint32_t or = sv->r & VT_VALMASK;
     CType t = sv->type;
 
-    printf("==== load(%d, sv)=====\n", r);
+    printf("==== load(%d, sv)===== ", r);
     /* printf("sv: %ld ", sv->c.i); */
     /* printf("r: %x\n", r); */
     /* printf("SV->R:"); */
@@ -250,7 +250,6 @@ ST_FUNC void load(int r, SValue *sv)
     /* } else { */
     /* 	    printf("(ny sym)\n"); */
     /* } */
-    printf("\n");
     if (or == VT_CONST) {
 	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
 	/* printf("cur func: %d\n", cur_function->nb_params); */
@@ -263,10 +262,18 @@ ST_FUNC void load(int r, SValue *sv)
 	    /* printf("need to store at %d\n", local_idx); */
 	}
     } else {
+	    printf("%d ", sv->c.i);
 	    g_code(LOCAL_GET); // local set
-	    g_code_int(sv->c.i); // local index
+	    if ((int64_t)sv->c.i < 0) {
+		/* if sv->c.i < 0, then is on stack, and pos in byte
+		 * no idea how i'm gona mix with variables of diferent bytes
+		 * so this need to be convert to a wasm local pos */
+		g_code_int(cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1);
+	    } else {
+		g_code_int(sv->c.i); // local index
+	    }
     }
-
+    printf("\n");
 }
 
 /* store thing from wasm stack into wasm local  */
@@ -553,6 +560,8 @@ ST_FUNC void gen_opi(int op)
      * if vtop->c contain a constant value, so i contain the int
      * otherwise, I need to use gv()/gv2() to convert vtop[0].r into a register location
      */
+
+    /* don't know why this is done */
     int d = get_reg(RC_INT);
     /* CType arg0_t = vtop[-1].type; */
     /* CType arg1_t = vtop[0].type; */
@@ -577,7 +586,11 @@ ST_FUNC void gen_opi(int op)
     }
 
     printf("%x - %x\n", vtop[-1].r, vtop[0].r);
-    gv2(RC_INT, RC_INT);
+    if (!vtop[-1].r) {
+	    gv(RC_INT);
+    } else {
+	    gv2(RC_INT, RC_INT);
+    }
     switch (op) {
     case '+':
 	    g_code(I32_ADD);
@@ -586,7 +599,10 @@ ST_FUNC void gen_opi(int op)
 	    printf("%d - '%c' unimplemented\n", op, op);
     }
     --vtop;
-    vtop[0].r = d;
+      /* set result to 0, so tcc doesn't try to load this,
+       * vtop[0] can be use to cary information about what to do with resul,
+       * and is unused here */
+    vtop[0].r = 0;
 }
 
 ST_FUNC void gen_opl(int op)
