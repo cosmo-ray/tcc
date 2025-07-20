@@ -595,6 +595,12 @@ ST_FUNC void gen_opi(int op)
     case '+':
 	    g_code(I32_ADD);
 	    break;
+    case '-':
+	    g_code(I32_SUB);
+	    break;
+    case '*':
+	    g_code(I32_MUL);
+	    break;
     default:
 	    printf("%d - '%c' unimplemented\n", op, op);
     }
