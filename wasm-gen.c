@@ -36,6 +36,14 @@ enum wasm_instructions {
 	I32_STORE = 0x36,
 	I64_STORE = 0x37,
 	I32_CONST = 0x41,
+	I32_EQZ = 0x45,
+	I32_EQ = 0x46,
+	I32_NE = 0x47,
+	I32_LT_S = 0x48,
+	I32_GT_S = 0x4a,
+	I32_LE_S = 0x4c,
+	I32_LE_U = 0x4d,
+	I32_GE_S = 0x4e,
 	I32_ADD = 0x6a,
 	I32_SUB = 0x6b,
 	I32_MUL = 0x6c,
@@ -592,6 +600,7 @@ ST_FUNC void gen_opi(int op)
     } else {
 	    gv2(RC_INT, RC_INT);
     }
+    printf("OP: '%c'\n", op);
     switch (op) {
     case '+':
 	    g_code(I32_ADD);
@@ -604,6 +613,24 @@ ST_FUNC void gen_opi(int op)
 	    break;
     case '/':
 	    g_code(I32_DIV_S);
+	    break;
+    case TOK_EQ:
+	    g_code(I32_EQ);
+	    break;
+    case TOK_NE:
+	    g_code(I32_NE);
+	    break;
+    case TOK_LT:
+	    g_code(I32_LT_S);
+	    break;
+    case TOK_GT:
+	    g_code(I32_GT_S);
+	    break;
+    case TOK_LE:
+	    g_code(I32_LE_S);
+	    break;
+    case TOK_GE:
+	    g_code(I32_GE_S);
 	    break;
     default:
 	    printf("%d - '%c' unimplemented\n", op, op);
