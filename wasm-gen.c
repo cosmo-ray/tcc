@@ -38,7 +38,8 @@ enum wasm_instructions {
 	I32_CONST = 0x41,
 	I32_ADD = 0x6a,
 	I32_SUB = 0x6b,
-	I32_MUL = 0x6c
+	I32_MUL = 0x6c,
+	I32_DIV_S = 0x6d // DIV_S is for signed integer
 };
 
 enum wasm_type_instruction {
@@ -600,6 +601,9 @@ ST_FUNC void gen_opi(int op)
 	    break;
     case '*':
 	    g_code(I32_MUL);
+	    break;
+    case '/':
+	    g_code(I32_DIV_S);
 	    break;
     default:
 	    printf("%d - '%c' unimplemented\n", op, op);
