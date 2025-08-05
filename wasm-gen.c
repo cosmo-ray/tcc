@@ -35,6 +35,7 @@ enum wasm_instructions {
 	NOP = 0x01,
 	BLOCK = 0x02,
 	LOOP = 0x03,
+	END = 0x0b,
 	BR = 0x0c,
 	BR_IF = 0x0d,
 	BR_TABLE = 0x0e,
@@ -497,7 +498,7 @@ ST_FUNC void gfunc_epilog(void)
 
     printf("^^^^ gfunc_epilog() ^^^^^\n");
     func_size = ind - func_size_ind;
-    g_code(0x0b);
+    g_code(END);
     if (func_size > 255) {
 	tcc_error_noabort("function too big, wasm need fixup !");
 	/* too fixup: memmove all fucntion byte code */
