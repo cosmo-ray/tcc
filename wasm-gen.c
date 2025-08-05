@@ -31,10 +31,18 @@
 #else
 
 enum wasm_instructions {
+	UNREACHABLE = 0x00,
+	NOP = 0x01,
+	BLOCK = 0x02,
+	LOOP = 0x03,
+	BR = 0x0c,
+	BR_IF = 0x0d,
+	BR_TABLE = 0x0e,
 	LOCAL_GET = 0x20,
 	LOCAL_SET = 0x21,
 	I32_STORE = 0x36,
 	I64_STORE = 0x37,
+	VOID = 0x40,
 	I32_CONST = 0x41,
 	I32_EQZ = 0x45,
 	I32_EQ = 0x46,
@@ -541,7 +549,7 @@ ST_FUNC void gen_fill_nops(int bytes)
 ST_FUNC int gjmp(int t)
 {
     printf("gjmp(%d)\n", t);
-    return 0;
+    return t;
 }
 
 ST_FUNC void gjmp_addr(int a)
@@ -552,13 +560,13 @@ ST_FUNC void gjmp_addr(int a)
 ST_FUNC int gjmp_cond(int op, int t)
 {
     printf("gjmp_cond(%d, %d)\n", op, t);
-    return 0;
+    return t;
 }
 
 ST_FUNC int gjmp_append(int n, int t)
 {
     printf("gjmp_append(%d, %d)\n", n, t);
-    return 0;
+    return t;
 }
 
 ST_FUNC void gen_opi(int op)
@@ -575,7 +583,7 @@ ST_FUNC void gen_opi(int op)
     /* CType arg0_t = vtop[-1].type; */
     /* CType arg1_t = vtop[0].type; */
 
-    printf("------ gen_opi(%d - '%c') ------ \n", op, op);
+    printf("------ gen_opi(%x - '%c') ------ \n", op, op);
     printf("vtop -1 r (%x): ", vtop[-1].type.t);
     // print_r_mask(vtop[-1].r, arg0_t);
     printf("vtop -1: %lx - %ld ", vtop[-1].c.i, vtop[-1].c.i);
@@ -640,6 +648,8 @@ ST_FUNC void gen_opi(int op)
        * vtop[0] can be use to cary information about what to do with resul,
        * and is unused here */
     vtop[0].r = 0;
+    if (op >= TOK_ULT && op <= TOK_GT)
+	    vset_VT_CMP(op);
 }
 
 ST_FUNC void gen_opl(int op)
