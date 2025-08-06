@@ -301,25 +301,25 @@ ST_FUNC void store(int r, SValue *sv)
     CType t = sv->type;
 
     printf("---- store(%d. sv) ----\n", r);
-    printf("sv: %ld ", sv->c.i);
-    printf("SV->R: ");
-    //print_r_mask(sv->r, sv->type);
-    if (vtop[-1].sym) {
-	    printf("(%p - %d - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL));
-    } else {
-	    printf("(ny sym)\n");
-    }
+    /* printf("sv: %ld ", sv->c.i); */
+    /* printf("SV->R: "); */
+    /* //print_r_mask(sv->r, sv->type); */
+    /* if (vtop[-1].sym) { */
+    /* 	    printf("(%p - %d - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL)); */
+    /* } else { */
+    /* 	    printf("(ny sym)\n"); */
+    /* } */
     if (or == VT_LOCAL) {
 	/* load stack into local */
 	/* sv->c.i value if VT_INT */
 	/* if there is 2  param, then param at index 2, is the first non param argument*/
 	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
-	printf("nb param: %d\n", cur_function->nb_params);
-	printf("sv->c.i: %ld\n", sv->c.i);
-	printf("store wasm stack index: %ld\n",
-	       cur_function->nb_params + 1 + (-1 * (sv->c.i / 4)));
+	/* printf("nb param: %d\n", cur_function->nb_params); */
+	/* printf("sv->c.i: %ld\n", sv->c.i); */
+	/* printf("store wasm stack index: %ld\n", */
+	/*        cur_function->nb_params + 1 + (-1 * (sv->c.i / 4))); */
 	if (((t.t & VT_BTYPE) == VT_INT)) {
-	    printf("store int !");
+	    /* printf("store int !"); */
 	    /* g_code_int(&sv->c.i); */
 	    g_code(LOCAL_SET); // local set
 	    g_code_int(local_idx); // local index
@@ -547,25 +547,35 @@ ST_FUNC void gen_fill_nops(int bytes)
     printf("gen_fill_nops(%d)\n", bytes);
 }
 
+static void mk_block(void)
+{
+    g_code(BLOCK);
+    g_code(VOID);
+}
+
 ST_FUNC int gjmp(int t)
 {
+    mk_block();
     printf("gjmp(%d)\n", t);
     return t;
 }
 
 ST_FUNC void gjmp_addr(int a)
 {
+    mk_block();
     printf("gjmp_addr(%d)\n", a);
 }
 
 ST_FUNC int gjmp_cond(int op, int t)
 {
+    mk_block();
     printf("gjmp_cond(%d, %d)\n", op, t);
     return t;
 }
 
 ST_FUNC int gjmp_append(int n, int t)
 {
+    mk_block();
     printf("gjmp_append(%d, %d)\n", n, t);
     return t;
 }
