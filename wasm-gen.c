@@ -229,6 +229,7 @@ ST_FUNC void o(unsigned int c)
 
 ST_FUNC void gsym_addr(int t_, int a_)
 {
+    g_code(END);
     printf("gsym_addr(%d %d)\n", t_, a_);
 }
 
@@ -545,6 +546,8 @@ ST_FUNC void gen_va_start(void)
 ST_FUNC void gen_fill_nops(int bytes)
 {
     printf("gen_fill_nops(%d)\n", bytes);
+    while (bytes--)
+	g_code(NOP);
 }
 
 static void mk_block(void)
@@ -569,13 +572,16 @@ ST_FUNC void gjmp_addr(int a)
 ST_FUNC int gjmp_cond(int op, int t)
 {
     mk_block();
+    g_code(BR_IF);
+    g_code(0);
     printf("gjmp_cond(%d, %d)\n", op, t);
+    t = ind;
     return t;
 }
 
 ST_FUNC int gjmp_append(int n, int t)
 {
-    mk_block();
+    /* mk_block(); */
     printf("gjmp_append(%d, %d)\n", n, t);
     return t;
 }
@@ -595,31 +601,31 @@ ST_FUNC void gen_opi(int op)
     /* CType arg1_t = vtop[0].type; */
 
     printf("------ gen_opi(%x - '%c') ------ \n", op, op);
-    printf("vtop -1 r (%x): ", vtop[-1].type.t);
+    /* printf("vtop -1 r (%x): ", vtop[-1].type.t); */
     // print_r_mask(vtop[-1].r, arg0_t);
-    printf("vtop -1: %lx - %ld ", vtop[-1].c.i, vtop[-1].c.i);
-    if (vtop[-1].sym) {
-	    printf("(%p - %ld - %s)\n", vtop[-1].sym, vtop[-1].sym ? vtop[-1].sym->c : -1L, get_tok_str(vtop[-1].sym->v, NULL));
-    } else {
-	printf("(ny sym)\n");
-    }
-    printf("vtop 0 r (%x): ", vtop[0].type.t);
+    /* printf("vtop -1: %lx - %ld ", vtop[-1].c.i, vtop[-1].c.i); */
+    /* if (vtop[-1].sym) { */
+    /* 	    printf("(%p - %ld - %s)\n", vtop[-1].sym, vtop[-1].sym ? vtop[-1].sym->c : -1L, get_tok_str(vtop[-1].sym->v, NULL)); */
+    /* } else { */
+    /* 	printf("(ny sym)\n"); */
+    /* } */
+    /* printf("vtop 0 r (%x): ", vtop[0].type.t); */
     // print_r_mask(vtop[0].r, arg0_t);
 
-    printf("vtop 0: %lx - %ld ", vtop[0].c.i, vtop[0].c.i);
-    if (vtop[0].sym) {
-	printf("(%p - %ld - %s)\n", vtop[0].sym, vtop[0].sym ? vtop[0].sym->c : 0L, get_tok_str(vtop[0].sym->v, NULL));
-    } else {
-	printf("(no sym)\n");
-    }
+    /* printf("vtop 0: %lx - %ld ", vtop[0].c.i, vtop[0].c.i); */
+    /* if (vtop[0].sym) { */
+    /* 	printf("(%p - %ld - %s)\n", vtop[0].sym, vtop[0].sym ? vtop[0].sym->c : 0L, get_tok_str(vtop[0].sym->v, NULL)); */
+    /* } else { */
+    /* 	printf("(no sym)\n"); */
+    /* } */
 
-    printf("%x - %x\n", vtop[-1].r, vtop[0].r);
+    /* printf("%x - %x\n", vtop[-1].r, vtop[0].r); */
     if (!vtop[-1].r) {
 	    gv(RC_INT);
     } else {
 	    gv2(RC_INT, RC_INT);
     }
-    printf("OP: '%c'\n", op);
+    /* printf("OP: '%c'\n", op); */
     switch (op) {
     case '+':
 	    g_code(I32_ADD);
