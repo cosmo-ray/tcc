@@ -548,7 +548,22 @@ int main(int argc, char **argv)
     printf(" %d %d\n", foo(&x), sizeof (struct xxx));
     enum ee e = b;
     bar(13 + e, 0);
+}
 
+#elif defined test_if_decl_too_much_var
+
+int main()
+{
+    if (int i = 0, j = 16) {
+    }
+}
+
+#elif defined test_if_decl_no_init
+
+int main()
+{
+    if (int i) {
+    }
 }
 
 #endif

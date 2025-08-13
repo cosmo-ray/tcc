@@ -262,3 +262,9 @@ bar 15 12 34
 [test_scope_3]
 60_errors_and_warnings.c:548: warning: assignment from incompatible pointer type
 60_errors_and_warnings.c:549: error: initialization of incomplete type
+
+[test_if_decl_too_much_var]
+60_errors_and_warnings.c:557: error: declaration in condition can only declare a single object
+
+[test_if_decl_no_init]
+60_errors_and_warnings.c:565: error: declaration in the controlling expression must have an initializer
