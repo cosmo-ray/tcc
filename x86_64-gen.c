@@ -228,6 +228,8 @@ static void orex(int ll, int r, int r2, int b)
 /* output a symbol and patch all calls to it */
 ST_FUNC void gsym_addr(int t, int a)
 {
+    printf("gsym_addr(%d %d)\n", t, a);
+
     while (t) {
         unsigned char *ptr = cur_text_section->data + t;
         uint32_t n = read32le(ptr); /* next value */
@@ -364,6 +366,7 @@ void load(int r, SValue *sv)
     int v, t, ft, fc, fr;
     SValue v1;
 
+    printf("==== load(%d, sv)=====\n", r);
     fr = sv->r;
     ft = sv->type.t & ~VT_DEFSIGN;
     fc = sv->c.i;
@@ -568,6 +571,7 @@ void store(int r, SValue *v)
     /* store the REX prefix in this variable when PIC is enabled */
     int pic = 0;
 
+    printf("---- store(%d. sv) ----\n", r);
     fr = v->r & VT_VALMASK;
     ft = v->type.t;
     fc = v->c.i;
@@ -1637,6 +1641,7 @@ ST_FUNC void gen_fill_nops(int bytes)
 /* generate a jump to a label */
 int gjmp(int t)
 {
+	printf("gjmp(%d)\n", t);
     return gjmp2(0xe9, t);
 }
 
@@ -1644,6 +1649,7 @@ int gjmp(int t)
 void gjmp_addr(int a)
 {
     int r;
+    printf("gjmp_addr(%d)\n", a);
     r = a - ind - 2;
     if (r == (char)r) {
         g(0xeb);
@@ -1656,6 +1662,7 @@ void gjmp_addr(int a)
 ST_FUNC int gjmp_append(int n, int t)
 {
     void *p;
+    printf("gjmp_append(%d, %d)\n", n, t);
     /* insert vtop->c jump list in t */
     if (n) {
         uint32_t n1 = n, n2;
@@ -1669,6 +1676,7 @@ ST_FUNC int gjmp_append(int n, int t)
 
 ST_FUNC int gjmp_cond(int op, int t)
 {
+	printf("gjmp_cond(%d, %d)\n", op, t);
         if (op & 0x100)
 	  {
 	    /* This was a float compare.  If the parity flag is set

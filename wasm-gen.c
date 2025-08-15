@@ -69,6 +69,8 @@ enum wasm_type_instruction {
 #define USING_GLOBALS
 #include "tcc.h"
 
+static int block_cnt;
+
 ST_DATA const char * const target_machine_defs =
     "__wasm__\0"
     "__wasm\0"
@@ -108,6 +110,8 @@ struct wasm_type_info {
     short int nb_i64;
     short int nb_f32;
     short int nb_f64;
+    short int cmp_i32_loc;
+    int block_cnt;
 };
 
 struct wasm_type_info *cur_function;
@@ -280,7 +284,7 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code_int(sv->c.i);
 	    /* printf("need to store at %d\n", local_idx); */
 	}
-    } else {
+    } else if (or != VT_CMP) {
 	    printf("%d ", sv->c.i);
 	    g_code(LOCAL_GET); // local set
 	    if ((int64_t)sv->c.i < 0) {
@@ -435,6 +439,8 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     }
     type.ti.nb_params = nb_args;
     type.ti.stack_len = nb_args;
+    type.ti.block_cnt = 0;
+
     type_idx = find_type(&type);
     if (type_idx < 0) {
 	type_idx = wasm_type_cnt++;
@@ -572,8 +578,11 @@ ST_FUNC void gjmp_addr(int a)
 ST_FUNC int gjmp_cond(int op, int t)
 {
     mk_block();
+    g_code(LOCAL_GET);
+    g_code(cur_function->cmp_i32_loc);
+    g_code(I32_EQZ);
     g_code(BR_IF);
-    g_code(0);
+    g_code(cur_function->block_cnt++);
     printf("gjmp_cond(%d, %d)\n", op, t);
     t = ind;
     return t;
@@ -665,8 +674,14 @@ ST_FUNC void gen_opi(int op)
        * vtop[0] can be use to cary information about what to do with resul,
        * and is unused here */
     vtop[0].r = 0;
-    if (op >= TOK_ULT && op <= TOK_GT)
-	    vset_VT_CMP(op);
+    if (op >= TOK_ULT && op <= TOK_GT) {
+	vset_VT_CMP(op);
+	g_code(LOCAL_SET); // local set
+	g_code_int(cur_function->stack_len);
+	cur_function->cmp_i32_loc = cur_function->stack_len;
+	cur_function->stack_len++;
+	cur_function->nb_i32++;
+    }
 }
 
 ST_FUNC void gen_opl(int op)
