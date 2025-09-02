@@ -41,6 +41,8 @@ enum wasm_instructions {
 	BR_TABLE = 0x0e,
 	LOCAL_GET = 0x20,
 	LOCAL_SET = 0x21,
+	I32_LOAD = 0x28,
+	I64_LOAD = 0x29,
 	I32_STORE = 0x36,
 	I64_STORE = 0x37,
 	VOID = 0x40,
@@ -299,6 +301,23 @@ ST_FUNC void load(int r, SValue *sv)
     printf("\n");
 }
 
+static char *byte_to_str[] = {
+    "VT_VOID",
+    "VT_BYTE",
+    "VT_SHORT",
+    "VT_INT",
+    "VT_LLONG",
+    "VT_PTR",
+    "VT_FUNC",
+    "VT_STRUCT",
+    "VT_FLOAT",
+    "VT_DOUBLE",
+    "VT_LDOUBLE",
+    "VT_BOOL",
+    "VT_QLONG",
+    "VT_QFLOAT"
+};
+
 /* store thing from wasm stack into wasm local  */
 ST_FUNC void store(int r, SValue *sv)
 {
@@ -330,6 +349,8 @@ ST_FUNC void store(int r, SValue *sv)
 	    g_code_int(local_idx); // local index
 	    cur_function->stack_len++;
 	    cur_function->nb_i32++;
+	} else {
+	    printf("TODO: %s", byte_to_str[t.t & VT_BTYPE]);
 	}
     } else if (or == VT_CONST) {
 	printf("or == VT_CONST\n");
