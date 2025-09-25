@@ -43,8 +43,12 @@ enum wasm_instructions {
 	LOCAL_SET = 0x21,
 	I32_LOAD = 0x28,
 	I64_LOAD = 0x29,
+	F32_LOAD = 0x2a,
+	F64_LOAD = 0x2b,
 	I32_STORE = 0x36,
 	I64_STORE = 0x37,
+	F32_STORE = 0x38,
+	F64_STORE = 0x39,
 	VOID = 0x40,
 	I32_CONST = 0x41,
 	I32_EQZ = 0x45,
@@ -265,7 +269,7 @@ ST_FUNC void load(int r, SValue *sv)
     uint32_t or = sv->r & VT_VALMASK;
     CType t = sv->type;
 
-    printf("==== load(%d, sv)===== ", r);
+    printf("==== load(%d, sv, lval %d)===== ", r);
     /* printf("sv: %ld ", sv->c.i); */
     /* printf("r: %x\n", r); */
     /* printf("SV->R:"); */
@@ -286,17 +290,22 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code_int(sv->c.i);
 	    /* printf("need to store at %d\n", local_idx); */
 	}
-    } else if (or != VT_CMP) {
+    } else if (or == VT_LOCAL) {
 	    printf("%d ", sv->c.i);
-	    g_code(LOCAL_GET); // local set
+	    g_code(I32_CONST);
 	    if ((int64_t)sv->c.i < 0) {
+		int idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
 		/* if sv->c.i < 0, then is on stack, and pos in byte
 		 * no idea how i'm gona mix with variables of diferent bytes
 		 * so this need to be convert to a wasm local pos */
-		g_code_int(cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1);
+		g_code_int(idx * 4);
 	    } else {
-		g_code_int(sv->c.i); // local index
+		g_code_int(sv->c.i * 4); // local index
 	    }
+	    g_code(I32_LOAD);
+	    g_code_int(2); /* alignement */
+	    g_code_int(0);  /* offset */
+	    /* g_code(LOCAL_GET); // local set */
     }
     printf("\n");
 }
@@ -345,8 +354,16 @@ ST_FUNC void store(int r, SValue *sv)
 	if (((t.t & VT_BTYPE) == VT_INT)) {
 	    /* printf("store int !"); */
 	    /* g_code_int(&sv->c.i); */
-	    g_code(LOCAL_SET); // local set
+	    g_code(LOCAL_SET);
 	    g_code_int(local_idx); // local index
+
+	    g_code(I32_CONST); // local set
+	    g_code_int(local_idx * 4); // local index
+
+	    g_code(LOCAL_GET);
+	    g_code_int(local_idx); // local index
+
+	    g_code(I32_STORE);
 	    cur_function->stack_len++;
 	    cur_function->nb_i32++;
 	} else {
@@ -401,7 +418,7 @@ void init_mem(void)
 
 ST_FUNC void gfunc_prolog(Sym *func_sym)
 {
-    Sym *sym;
+    Sym *sym, *osym;
     int func_call;
     CType *func_type = &func_sym->type;
     int nb_args = 0;
@@ -432,6 +449,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     func_call = sym->f.func_call;
     loc = 0;
     func_vc = 0;
+    osym = sym;
     while ((sym = sym->next) != NULL) {
 	CType *t;
 	int bt;
@@ -504,6 +522,36 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     g_code(0); /* nb locals, to fixup at epilog */
     ++nb_func;
 
+    sym = osym;
+    i = 0;
+    while ((sym = sym->next) != NULL) {
+	CType *t;
+	int bt;
+
+	t = &sym->type;
+	bt = t->t & VT_BTYPE;
+
+	g_code(I32_CONST);
+	g_code_int(i * 4);
+	g_code(LOCAL_GET);
+	g_code_int(i++);
+	switch (bt) {
+	case VT_INT:
+	    g_code(I32_STORE);
+	    break;
+	case VT_DOUBLE:
+	    g_code(F64_STORE);
+	    break;
+	case VT_FLOAT:
+	    g_code(F32_STORE);
+	    break;
+	case VT_LLONG:
+	    g_code(I64_STORE);
+	    break;
+	}
+	g_code_int(2); /* alignement */
+	g_code_int(0);  /* offset */
+    }
     printf("========= gfunc_prolog %s(func_sym) [fc: %d, nargs: %d] =======\n", get_tok_str(func_sym->v, NULL), func_call, nb_args);
 }
 
