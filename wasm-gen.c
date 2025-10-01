@@ -289,6 +289,8 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code(I32_CONST);
 	    g_code_int(sv->c.i);
 	    /* printf("need to store at %d\n", local_idx); */
+	} else {
+	    printf("can't load unknow constant\n");
 	}
     } else if (or == VT_LOCAL) {
 	    printf("%d ", sv->c.i);
@@ -306,6 +308,11 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code_int(2); /* alignement */
 	    g_code_int(0);  /* offset */
 	    /* g_code(LOCAL_GET); // local set */
+    } else if (or == VT_CMP) {
+	    printf("\n%d ", cur_function->cmp_i32_loc);
+	    printf("CMP !!!!!\n");
+	    g_code(LOCAL_GET);
+	    g_code_int(cur_function->cmp_i32_loc);
     }
     printf("\n");
 }
@@ -354,18 +361,25 @@ ST_FUNC void store(int r, SValue *sv)
 	if (((t.t & VT_BTYPE) == VT_INT)) {
 	    /* printf("store int !"); */
 	    /* g_code_int(&sv->c.i); */
+	  store_int:
 	    g_code(LOCAL_SET);
 	    g_code_int(local_idx); // local index
 
 	    g_code(I32_CONST); // local set
-	    g_code_int(local_idx * 4); // local index
+	    // local index, TODO *4 is pretty bad, there should be a better way to get adresss
+	    g_code_int(local_idx * 4);
 
 	    g_code(LOCAL_GET);
 	    g_code_int(local_idx); // local index
 
 	    g_code(I32_STORE);
+	    g_code_int(2); /* alignement */
+	    g_code_int(0);  /* offset */
 	    cur_function->stack_len++;
 	    cur_function->nb_i32++;
+	} else if ((t.t & VT_BTYPE) == VT_PTR) {
+	    printf("handle vt ptr");
+	    goto store_int;
 	} else {
 	    printf("TODO: %s", byte_to_str[t.t & VT_BTYPE]);
 	}
