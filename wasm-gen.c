@@ -51,6 +51,7 @@ enum wasm_instructions {
 	F64_STORE = 0x39,
 	VOID = 0x40,
 	I32_CONST = 0x41,
+	I64_CONST = 0x42,
 	I32_EQZ = 0x45,
 	I32_EQ = 0x46,
 	I32_NE = 0x47,
@@ -148,6 +149,18 @@ static void g_func(char c)
         section_realloc(function_section, ind1);
     function_section->data[wasm_func_ind] = c;
     wasm_func_ind = ind1;
+}
+
+static void g_glob(char c)
+{
+    int ind1;
+    if (nocode_wanted)
+        return;
+    ind1 = glob_ind + 1;
+    if (ind1 > global_section->data_allocated)
+        section_realloc(global_section, ind1);
+    global_section->data[glob_ind] = c;
+    glob_ind = ind1;
 }
 
 static void g_type(unsigned char c)
@@ -293,10 +306,11 @@ ST_FUNC void load(int r, SValue *sv)
 	    printf("can't load unknow constant\n");
 	}
     } else if (or == VT_LOCAL) {
-	    printf("%d ", sv->c.i);
+	    printf("i: %d ", sv->c.i);
 	    g_code(I32_CONST);
 	    if ((int64_t)sv->c.i < 0) {
 		int idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
+		printf("and then %d\n", idx * 4);
 		/* if sv->c.i < 0, then is on stack, and pos in byte
 		 * no idea how i'm gona mix with variables of diferent bytes
 		 * so this need to be convert to a wasm local pos */
@@ -341,26 +355,13 @@ ST_FUNC void store(int r, SValue *sv)
     CType t = sv->type;
 
     printf("---- store(%d. sv) ----\n", r);
-    /* printf("sv: %ld ", sv->c.i); */
-    /* printf("SV->R: "); */
-    /* //print_r_mask(sv->r, sv->type); */
-    /* if (vtop[-1].sym) { */
-    /* 	    printf("(%p - %d - %s)\n", sv->sym, sv->sym ? sv->sym->c : -1, get_tok_str(sv->sym->v, NULL)); */
-    /* } else { */
-    /* 	    printf("(ny sym)\n"); */
-    /* } */
     if (or == VT_LOCAL) {
 	/* load stack into local */
 	/* sv->c.i value if VT_INT */
 	/* if there is 2  param, then param at index 2, is the first non param argument*/
+	printf("st i %d\n", sv->c.i);
 	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
-	/* printf("nb param: %d\n", cur_function->nb_params); */
-	/* printf("sv->c.i: %ld\n", sv->c.i); */
-	/* printf("store wasm stack index: %ld\n", */
-	/*        cur_function->nb_params + 1 + (-1 * (sv->c.i / 4))); */
 	if (((t.t & VT_BTYPE) == VT_INT)) {
-	    /* printf("store int !"); */
-	    /* g_code_int(&sv->c.i); */
 	  store_int:
 	    g_code(LOCAL_SET);
 	    g_code_int(local_idx); // local index
@@ -454,7 +455,17 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     // write_section()
 
 
+    /*
+     * if no mem, assuming need to init global too
+     * we use 1 global to store stack index
+     */
     if (!mem_ind) {
+	/* as wasm mem is limited, 4 GB is more than enough */
+	g_glob(WASM_INT_32);
+	g_glob(1);
+	g_glob(I32_CONST);
+	g_glob(0);
+	g_glob(END);
 	init_mem();
     }
     type.ti.type = 0x60;

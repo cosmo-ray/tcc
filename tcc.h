@@ -1422,6 +1422,7 @@ ST_DATA SValue *vtop;
 ST_DATA int rsym, anon_sym, ind, loc;
 #if defined TCC_TARGET_WASM
 ST_DATA int type_ind, mem_ind, wasm_func_ind, wasm_type_cnt, nb_func, export_ind, nb_export;
+ST_DATA int glob_ind;
 #endif
 ST_DATA char debug_modes;
 

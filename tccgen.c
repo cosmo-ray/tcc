@@ -33,7 +33,7 @@ ST_DATA int rsym, anon_sym, ind, loc;
 
 #if defined TCC_TARGET_WASM
 ST_DATA int type_ind, mem_ind, nb_func, export_ind, nb_export;
-ST_DATA int wasm_func_ind;
+ST_DATA int wasm_func_ind, glob_ind;
 ST_DATA int wasm_type_cnt;
 #endif
 
