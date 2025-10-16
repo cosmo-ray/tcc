@@ -145,8 +145,8 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	/* printf("mem len: %ld - %ld\n", memory_section->sh_size, mem_ind); */
 	/* for now it seems there is always 1 mem */
 	TRY(write_section(MEMORY_SECTION_NB, fp, memory_section, 1));
-	/* 1 global for stack index */
-	TRY(write_section(GLOBAL_SECTION_NB, fp, global_section, 1));
+	/* 2 globals: 1 for stack function begin, and 1 for stack end */
+	TRY(write_section(GLOBAL_SECTION_NB, fp, global_section, 2));
 	TRY(write_section(EXPORT_SECTION_NB, fp, export_section, nb_export));
 	TRY(write_section(CODE_SECTION_NB, fp, code_section, nb_func));
 	type_ind = 0;

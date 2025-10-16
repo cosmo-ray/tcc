@@ -41,6 +41,8 @@ enum wasm_instructions {
 	BR_TABLE = 0x0e,
 	LOCAL_GET = 0x20,
 	LOCAL_SET = 0x21,
+	GLOBAL_GET = 0x23,
+	GLOBAL_SET = 0x24,
 	I32_LOAD = 0x28,
 	I64_LOAD = 0x29,
 	F32_LOAD = 0x2a,
@@ -138,6 +140,9 @@ ST_DATA int func_bound_add_epilog;
 #endif
 
 int func_size_ind;
+
+#define GLOBAL_STACK_BEGIN 0
+#define GLOBAL_STACK_END 1
 
 static void g_func(char c)
 {
@@ -307,16 +312,17 @@ ST_FUNC void load(int r, SValue *sv)
 	}
     } else if (or == VT_LOCAL) {
 	    printf("i: %d ", sv->c.i);
-	    g_code(I32_CONST);
+	    g_code(GLOBAL_GET);
+	    g_code_int(0);
+	    /* g_code(I32_CONST); */
 	    if ((int64_t)sv->c.i < 0) {
-		int idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
-		printf("and then %d\n", idx * 4);
-		/* if sv->c.i < 0, then is on stack, and pos in byte
-		 * no idea how i'm gona mix with variables of diferent bytes
-		 * so this need to be convert to a wasm local pos */
-		g_code_int(idx * 4);
+		g_code(I32_CONST);
+		g_code_int(cur_function->nb_params * 8 - sv->c.i); // local index
+		g_code(I32_ADD);
 	    } else {
-		g_code_int(sv->c.i * 4); // local index
+		g_code(I32_CONST);
+		g_code_int(sv->c.i * 8); // local index
+		g_code(I32_ADD);
 	    }
 	    g_code(I32_LOAD);
 	    g_code_int(2); /* alignement */
@@ -366,9 +372,11 @@ ST_FUNC void store(int r, SValue *sv)
 	    g_code(LOCAL_SET);
 	    g_code_int(local_idx); // local index
 
-	    g_code(I32_CONST); // local set
-	    // local index, TODO *4 is pretty bad, there should be a better way to get adresss
-	    g_code_int(local_idx * 4);
+	    g_code(GLOBAL_GET);
+	    g_code_int(0);
+	    g_code(I32_CONST);
+	    g_code_int(cur_function->nb_params * 8 - sv->c.i);
+	    g_code(I32_ADD);
 
 	    g_code(LOCAL_GET);
 	    g_code_int(local_idx); // local index
@@ -466,6 +474,11 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	g_glob(I32_CONST);
 	g_glob(0);
 	g_glob(END);
+	g_glob(WASM_INT_32);
+	g_glob(1);
+	g_glob(I32_CONST);
+	g_glob(0);
+	g_glob(END);
 	init_mem();
     }
     type.ti.type = 0x60;
@@ -557,7 +570,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	bt = t->t & VT_BTYPE;
 
 	g_code(I32_CONST);
-	g_code_int(i * 4);
+	g_code_int(i * 8);
 	g_code(LOCAL_GET);
 	g_code_int(i++);
 	switch (bt) {
