@@ -530,27 +530,27 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 		printf("param type %x\n", type.params[i].type);
 		g_type(type.params[i].type);
 	}
+	if ((func_vt.t & VT_BTYPE) == VT_VOID) {
+		g_type(0);
+	} else {
+		g_type(1);
+		switch (func_vt.t & VT_BTYPE) {
+		case VT_INT:
+			g_type(WASM_INT_32);
+			break;
+		case VT_LLONG:
+			g_type(WASM_INT_64);
+			break;
+		case VT_FLOAT:
+			g_type(WASM_FLOAT_32);
+			break;
+		case VT_DOUBLE:
+			g_type(WASM_FLOAT_64);
+			break;
+		}
+	}
     }
 
-    if ((func_vt.t & VT_BTYPE) == VT_VOID) {
-	    g_type(0);
-    } else {
-	    g_type(1);
-	    switch (func_vt.t & VT_BTYPE) {
-	    case VT_INT:
-		    g_type(WASM_INT_32);
-		    break;
-	    case VT_LLONG:
-		    g_type(WASM_INT_64);
-		    break;
-	    case VT_FLOAT:
-		    g_type(WASM_FLOAT_32);
-		    break;
-	    case VT_DOUBLE:
-		    g_type(WASM_FLOAT_64);
-		    break;
-	    }
-    }
 
     cur_function = (void *)&all_types[type_idx];
     g_func(type_idx);
