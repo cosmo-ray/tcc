@@ -39,6 +39,10 @@ enum wasm_instructions {
 	BR = 0x0c,
 	BR_IF = 0x0d,
 	BR_TABLE = 0x0e,
+	CALL = 0x10,
+	CALL_INDIRECT = 0x11,
+	RETURN_CALL = 0x12,
+	RETURN_CALL_INDIRECT = 0x13,
 	LOCAL_GET = 0x20,
 	LOCAL_SET = 0x21,
 	GLOBAL_GET = 0x23,
@@ -421,6 +425,9 @@ ST_FUNC void gfunc_call(int nb_args)
     int i;
 
     printf("gfunc_call(%d)\n", nb_args);
+    g_code(CALL);
+    int function_idx = 0;
+    g_code_int(function_idx);
     for(i = 0; i < nb_args; i++) {
 	vtop--;
     }
