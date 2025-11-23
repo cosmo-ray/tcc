@@ -549,6 +549,10 @@ typedef struct Sym {
     };
 
     CType type; /* associated type */
+#ifdef TCC_TARGET_WASM
+    int func_idx;
+#endif
+
     union {
         struct Sym *next; /* next related symbol (for fields and anoms) */
         int *e; /* expanded token stream */

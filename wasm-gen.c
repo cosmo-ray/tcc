@@ -41,7 +41,7 @@ enum wasm_instructions {
 	BR_TABLE = 0x0e,
 	CALL = 0x10,
 	CALL_INDIRECT = 0x11,
-	RETURN_CALL = 0x12,
+	RETURN_CALL = 0x12, /* return and return indirect, is for TCO, so curently unused */
 	RETURN_CALL_INDIRECT = 0x13,
 	LOCAL_GET = 0x20,
 	LOCAL_SET = 0x21,
@@ -144,6 +144,8 @@ ST_DATA int func_bound_add_epilog;
 #endif
 
 int func_size_ind;
+
+static int wasm_func_idx;
 
 #define GLOBAL_STACK_BEGIN 0
 #define GLOBAL_STACK_END 1
@@ -422,15 +424,20 @@ static char find_type(struct wasm_type *type)
 
 ST_FUNC void gfunc_call(int nb_args)
 {
-    int i;
+    int i, function_idx;
+    Sym *s;
 
     printf("gfunc_call(%d)\n", nb_args);
-    g_code(CALL);
-    int function_idx = 0;
-    g_code_int(function_idx);
     for(i = 0; i < nb_args; i++) {
 	vtop--;
     }
+    g_code(CALL);
+    // get function name: vtop[0].sym->v
+    s = sym_find(vtop[0].sym->v);
+    if (!s)
+	tcc_error("can't find function '%s'\n", get_tok_str(vtop[0].sym->v, NULL));
+    function_idx = s->func_idx;
+    g_code_int(function_idx);
     vtop--;
 }
 
@@ -560,6 +567,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 
 
     cur_function = (void *)&all_types[type_idx];
+    func_sym->func_idx = wasm_func_idx++;
     g_func(type_idx);
 
     func_size_ind = ind;
