@@ -150,6 +150,12 @@ static int wasm_func_idx;
 #define GLOBAL_STACK_BEGIN 0
 #define GLOBAL_STACK_END 1
 
+static int cur_func_stack_byte_size()
+{
+    return (cur_function->nb_f32 + cur_function->nb_i32 +
+	    cur_function->nb_f64 + cur_function->nb_i64) * 8;
+}
+
 static void g_func(char c)
 {
     int ind1;
@@ -256,6 +262,20 @@ static void g_mem_int(int i)
     g_mem(cur);
 }
 
+static int g_code_get_stack()
+{
+    g_code(GLOBAL_GET);
+    g_code_int(0);
+}
+
+static int g_code_stack_op(int op, int num)
+{
+    g_code_get_stack();
+    g_code(I32_CONST);
+    g_code_int(num);
+    g_code(op);
+}
+
 ST_FUNC void o(unsigned int c)
 {
     printf("o(%d)\n", c);
@@ -318,8 +338,7 @@ ST_FUNC void load(int r, SValue *sv)
 	}
     } else if (or == VT_LOCAL) {
 	    printf("i: %d ", sv->c.i);
-	    g_code(GLOBAL_GET);
-	    g_code_int(0);
+	    g_code_get_stack();
 	    /* g_code(I32_CONST); */
 	    if ((int64_t)sv->c.i < 0) {
 		g_code(I32_CONST);
@@ -378,11 +397,7 @@ ST_FUNC void store(int r, SValue *sv)
 	    g_code(LOCAL_SET);
 	    g_code_int(local_idx); // local index
 
-	    g_code(GLOBAL_GET);
-	    g_code_int(0);
-	    g_code(I32_CONST);
-	    g_code_int(cur_function->nb_params * 8 - sv->c.i);
-	    g_code(I32_ADD);
+	    g_code_stack_op(I32_ADD, cur_function->nb_params * 8 - sv->c.i);
 
 	    g_code(LOCAL_GET);
 	    g_code_int(local_idx); // local index
@@ -429,15 +444,42 @@ ST_FUNC void gfunc_call(int nb_args)
 
     printf("gfunc_call(%d)\n", nb_args);
     for(i = 0; i < nb_args; i++) {
+	load(0, &vtop[0]);
 	vtop--;
     }
-    g_code(CALL);
     // get function name: vtop[0].sym->v
     s = sym_find(vtop[0].sym->v);
     if (!s)
 	tcc_error("can't find function '%s'\n", get_tok_str(vtop[0].sym->v, NULL));
     function_idx = s->func_idx;
+
+    // I need to global_set for stack index
+    g_code_stack_op(I32_ADD, cur_func_stack_byte_size());
+    g_code(GLOBAL_SET);
+    g_code_int(0);
+
+    g_code(CALL);
     g_code_int(function_idx);
+
+    g_code_stack_op(I32_SUB, cur_func_stack_byte_size());
+    g_code(GLOBAL_SET);
+    g_code_int(0);
+
+
+/* // I need to reset global 0 to last stack */
+    /* g_code(LOCAL_SET); */
+    /* g_code_int(0); // local index */
+    /* g_code(GLOBAL_GET); */
+    /* g_code_int(0); */
+    /* g_code(I32_CONST); */
+    /* g_code_int(0); */
+    /* g_code(I32_ADD); */
+    /* g_code(LOCAL_GET); */
+    /* g_code_int(0); // local index */
+
+    /* g_code(I32_STORE); */
+    /* g_code_int(2); /\* alignement *\/ */
+    /* g_code_int(0);  /\* offset *\/ */
     vtop--;
 }
 
@@ -584,8 +626,10 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	t = &sym->type;
 	bt = t->t & VT_BTYPE;
 
+	g_code_get_stack();
 	g_code(I32_CONST);
 	g_code_int(i * 8);
+	g_code(I32_ADD);
 	g_code(LOCAL_GET);
 	g_code_int(i++);
 	switch (bt) {
