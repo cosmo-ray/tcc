@@ -89,7 +89,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
 			"\tfor (var i=1;i<=10;i++) {\n"
 			"\tlet r = res.instance.exports.";
 		char js_p2[] ="(i, i+1)\n"
-			"console.log(\"aB result: \"+i+\" = \"+r)\n"
+			"console.log(\"main result: \"+i+\" = \"+r)\n"
 			"\t}\n"
 			"});\n";
 		fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
@@ -104,7 +104,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
 		fwrite(js_p0, sizeof js_p0 -1, 1, fp);
 		fwrite(wasm_file, filename_l + 2, 1, fp);
 		fwrite(js_p1, sizeof js_p1 -1, 1, fp);
-		fwrite("aB", 2, 1, fp);
+		fwrite("main", 4, 1, fp);
 		fwrite(js_p2, sizeof js_p2 -1, 1, fp);
 	} else {
 		wasm_file = filename;
