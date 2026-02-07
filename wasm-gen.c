@@ -118,20 +118,22 @@ struct wasm_type_info {
     char type;
     char ret;
     short int nb_params;
-    short int stack_len;
     short int nb_i32;
     short int nb_i64;
     short int nb_f32;
     short int nb_f64;
+    /* parsing variable */
     short int cmp_i32_loc;
     int block_cnt;
+    short int locals_stack_len;
+    short int wasm_stack_len;
 };
 
-struct wasm_type_info *cur_function;
+struct wasm_type_info cur_function;
 
 struct wasm_type {
     struct wasm_type_info ti;
-    struct wasm_type_info params[WASM_MAX_PARAMS];
+    char params[WASM_MAX_PARAMS];
 };
 
 static struct wasm_type all_types[WASM_MAX_TYPES];
@@ -152,8 +154,8 @@ static int wasm_func_idx;
 
 static int cur_func_stack_byte_size()
 {
-    return (cur_function->nb_f32 + cur_function->nb_i32 +
-	    cur_function->nb_f64 + cur_function->nb_i64) * 8;
+    return (cur_function.nb_f32 + cur_function.nb_i32 +
+	    cur_function.nb_f64 + cur_function.nb_i64) * 8;
 }
 
 static void g_func(char c)
@@ -306,8 +308,9 @@ void print_r_mask(uint32_t r, CType t)
     printf("\n");
 }
 
+/* most generate code that load from stack to register */
+/* exept wasm have no register, but it have it's own stack instead */
 /* store something into wasm stack */
-/* to store a variable from a local to was stack, use local.get */
 ST_FUNC void load(int r, SValue *sv)
 {
     uint32_t or = sv->r & VT_VALMASK;
@@ -324,7 +327,7 @@ ST_FUNC void load(int r, SValue *sv)
     /* 	    printf("(ny sym)\n"); */
     /* } */
     if (or == VT_CONST) {
-	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
+	int local_idx = cur_function.nb_params + (-1 * (sv->c.i / 4)) - 1;
 	/* printf("cur func: %d\n", cur_function->nb_params); */
 
 	/* load const into mem */
@@ -333,6 +336,9 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code(I32_CONST);
 	    g_code_int(sv->c.i);
 	    /* printf("need to store at %d\n", local_idx); */
+	} else if ((t.t & VT_BTYPE) == VT_LLONG) {
+	    g_code(I64_CONST);
+	    g_code_int(sv->c.i);
 	} else {
 	    printf("can't load unknow constant\n");
 	}
@@ -342,7 +348,7 @@ ST_FUNC void load(int r, SValue *sv)
 	    /* g_code(I32_CONST); */
 	    if ((int64_t)sv->c.i < 0) {
 		g_code(I32_CONST);
-		g_code_int(cur_function->nb_params * 8 - sv->c.i); // local index
+		g_code_int(cur_function.nb_params * 8 - sv->c.i); // local index
 		g_code(I32_ADD);
 	    } else {
 		g_code(I32_CONST);
@@ -354,11 +360,14 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code_int(0);  /* offset */
 	    /* g_code(LOCAL_GET); // local set */
     } else if (or == VT_CMP) {
-	    printf("\n%d ", cur_function->cmp_i32_loc);
+	    printf("\n%d ", cur_function.cmp_i32_loc);
 	    printf("CMP !!!!!\n");
 	    g_code(LOCAL_GET);
-	    g_code_int(cur_function->cmp_i32_loc);
+	    g_code_int(cur_function.cmp_i32_loc);
+    } else {
+	tcc_error("load fail\n");
     }
+    cur_function.wasm_stack_len += 1;
     printf("\n");
 }
 
@@ -379,7 +388,7 @@ static char *byte_to_str[] = {
     "VT_QFLOAT"
 };
 
-/* store thing from wasm stack into wasm local  */
+/* store thing from wasm stack into emulated memory stack  */
 ST_FUNC void store(int r, SValue *sv)
 {
     uint32_t or = sv->r & VT_VALMASK;
@@ -391,13 +400,13 @@ ST_FUNC void store(int r, SValue *sv)
 	/* sv->c.i value if VT_INT */
 	/* if there is 2  param, then param at index 2, is the first non param argument*/
 	printf("st i %d\n", sv->c.i);
-	int local_idx = cur_function->nb_params + (-1 * (sv->c.i / 4)) - 1;
+	int local_idx = cur_function.nb_params + (-1 * (sv->c.i / 4)) - 1;
 	if (((t.t & VT_BTYPE) == VT_INT)) {
 	  store_int:
 	    g_code(LOCAL_SET);
 	    g_code_int(local_idx); // local index
 
-	    g_code_stack_op(I32_ADD, cur_function->nb_params * 8 - sv->c.i);
+	    g_code_stack_op(I32_ADD, cur_function.nb_params * 8 - sv->c.i);
 
 	    g_code(LOCAL_GET);
 	    g_code_int(local_idx); // local index
@@ -405,23 +414,23 @@ ST_FUNC void store(int r, SValue *sv)
 	    g_code(I32_STORE);
 	    g_code_int(2); /* alignement */
 	    g_code_int(0);  /* offset */
-	    cur_function->stack_len++;
-	    cur_function->nb_i32++;
+	    cur_function.nb_i32++;
 	} else if ((t.t & VT_BTYPE) == VT_PTR) {
 	    printf("handle vt ptr");
 	    goto store_int;
 	} else {
-	    printf("TODO: %s", byte_to_str[t.t & VT_BTYPE]);
+	    tcc_error("TODO: %s", byte_to_str[t.t & VT_BTYPE]);
 	}
     } else if (or == VT_CONST) {
-	printf("or == VT_CONST\n");
+	tcc_error("or == VT_CONST\n");
     } else if (sv->r & VT_LVAL) {
-	printf("sv->r & VT_LVAL\n");
+	tcc_error("sv->r & VT_LVAL\n");
     } else if (or != r) {
-	printf("or != r !!!\n");
+	tcc_error("or != r !!!\n");
     } else {
-	printf("gre nieu nieu\n");
+	tcc_error("gre nieu nieu\n");
     }
+    cur_function.wasm_stack_len -= 1;
 
     printf("\n");
 }
@@ -444,7 +453,7 @@ ST_FUNC void gfunc_call(int nb_args)
 
     printf("gfunc_call(%d)\n", nb_args);
     for(i = 0; i < nb_args; i++) {
-	load(0, &vtop[0]);
+	load(0, vtop);
 	vtop--;
     }
     // get function name: vtop[0].sym->v
@@ -557,21 +566,21 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	loc++;
 	if (bt == VT_FLOAT) {
 	    type.ti.nb_f32++;
-	    type.params[nb_args].type = WASM_FLOAT_32;
+	    type.params[nb_args] = WASM_FLOAT_32;
 	} else if (bt == VT_DOUBLE) {
 	    type.ti.nb_f64++;
-	    type.params[nb_args].type = WASM_FLOAT_64;
+	    type.params[nb_args] = WASM_FLOAT_64;
 	} else if (bt == VT_LLONG) {
 	    type.ti.nb_i64++;
-	    type.params[nb_args].type = WASM_INT_64;
+	    type.params[nb_args] = WASM_INT_64;
 	} else {
 	    type.ti.nb_i32++;
-	    type.params[nb_args].type = WASM_INT_32;
+	    type.params[nb_args] = WASM_INT_32;
 	}
 	nb_args++;
     }
     type.ti.nb_params = nb_args;
-    type.ti.stack_len = nb_args;
+    type.ti.locals_stack_len = nb_args;
     type.ti.block_cnt = 0;
 
     type_idx = find_type(&type);
@@ -583,8 +592,8 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	printf("gtype %p el0: %x\n", type_section, type_section->data[0]);
 	g_type(type.ti.nb_params);
 	for (i = 0; i < type.ti.nb_params; ++i) {
-		printf("param type %x\n", type.params[i].type);
-		g_type(type.params[i].type);
+		printf("param type %x\n", type.params[i]);
+		g_type(type.params[i]);
 	}
 	if ((func_vt.t & VT_BTYPE) == VT_VOID) {
 		g_type(0);
@@ -608,7 +617,13 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     }
 
 
-    cur_function = (void *)&all_types[type_idx];
+    /* here I copy the type, as I need to keep track of stack, it's an ungly trick
+     * so type is use as the same time as function type def, and info about stack.
+     * and number of int/float and so on.
+     * could be better, but it's useful as it contain the stack len when the func is call
+     * va_args are still todo
+     */
+    cur_function = all_types[type_idx].ti;
     func_sym->func_idx = wasm_func_idx++;
     g_func(type_idx);
 
@@ -667,7 +682,7 @@ ST_FUNC void arch_transfer_ret_regs(int aftercall)
 ST_FUNC void gfunc_epilog(void)
 {
     int func_size;
-    int func_nb_local = cur_function->stack_len;
+    int func_nb_local = cur_function.locals_stack_len;
 
     printf("^^^^ gfunc_epilog() ^^^^^\n");
     func_size = ind - func_size_ind;
@@ -678,8 +693,8 @@ ST_FUNC void gfunc_epilog(void)
 	return;
     }
     if (func_nb_local) {
-	    int nb_types = 0 + cur_function->nb_i32 ? 1 : 0 + cur_function->nb_i64 ? 1 : 0
-		+ cur_function->nb_f64 ? 1 : 0 + cur_function->nb_f32 ? 1 : 0;
+	    int nb_types = 0 + cur_function.nb_i32 ? 1 : 0 + cur_function.nb_i64 ? 1 : 0
+		+ cur_function.nb_f64 ? 1 : 0 + cur_function.nb_f32 ? 1 : 0;
 	    int code_tot_size = ind + nb_types * 2;
 	    int i, i2 = 2;
 
@@ -690,8 +705,8 @@ ST_FUNC void gfunc_epilog(void)
 	    code_section->data[func_size_ind + 1] = nb_types;
 
 #define PUSH_LOC(what, byte)						\
-	    if (cur_function->nb_##what) {				\
-		code_section->data[func_size_ind + i2] = cur_function->nb_i32; \
+	    if (cur_function.nb_##what) {				\
+		code_section->data[func_size_ind + i2] = cur_function.nb_i32; \
 		++i2;							\
 		code_section->data[func_size_ind + i2] = byte;		\
 	    }
@@ -745,10 +760,10 @@ ST_FUNC int gjmp_cond(int op, int t)
 {
     mk_block();
     g_code(LOCAL_GET);
-    g_code(cur_function->cmp_i32_loc);
+    g_code(cur_function.cmp_i32_loc);
     g_code(I32_EQZ);
     g_code(BR_IF);
-    g_code(cur_function->block_cnt++);
+    g_code(cur_function.block_cnt++);
     printf("gjmp_cond(%d, %d)\n", op, t);
     t = ind;
     return t;
@@ -833,20 +848,22 @@ ST_FUNC void gen_opi(int op)
 	    g_code(I32_GE_S);
 	    break;
     default:
-	    printf("%d - '%c' unimplemented\n", op, op);
+	    tcc_error("%d - '%c' unimplemented\n", op, op);
     }
     --vtop;
       /* set result to 0, so tcc doesn't try to load this,
        * vtop[0] can be use to cary information about what to do with resul,
        * and is unused here */
     vtop[0].r = 0;
+    /* will break compilation on unary operations */
+    cur_function.wasm_stack_len -= 1;
     if (op >= TOK_ULT && op <= TOK_GT) {
 	vset_VT_CMP(op);
 	g_code(LOCAL_SET); // local set
-	g_code_int(cur_function->stack_len);
-	cur_function->cmp_i32_loc = cur_function->stack_len;
-	cur_function->stack_len++;
-	cur_function->nb_i32++;
+	g_code_int(cur_function.locals_stack_len);
+	cur_function.cmp_i32_loc = cur_function.locals_stack_len;
+	cur_function.locals_stack_len++;
+	cur_function.nb_i32++;
     }
 }
 
