@@ -316,7 +316,7 @@ ST_FUNC void load(int r, SValue *sv)
     uint32_t or = sv->r & VT_VALMASK;
     CType t = sv->type;
 
-    printf("==== load(%d, sv, lval %d)===== ", r);
+    printf("==== load(%d, sv, lval/const %ld)===== ", r, sv ? sv->c.i : 0L);
     /* printf("sv: %ld ", sv->c.i); */
     /* printf("r: %x\n", r); */
     /* printf("SV->R:"); */
@@ -415,6 +415,7 @@ ST_FUNC void store(int r, SValue *sv)
 	    g_code_int(2); /* alignement */
 	    g_code_int(0);  /* offset */
 	    cur_function.nb_i32++;
+	    cur_function.locals_stack_len++;
 	} else if ((t.t & VT_BTYPE) == VT_PTR) {
 	    printf("handle vt ptr");
 	    goto store_int;

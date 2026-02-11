@@ -34,7 +34,7 @@ static int write_section(char section, FILE *fp, Section *s, unsigned char nb_st
 again:
 	*len_bytes_ptr = len_cp & 0x7f;
 	len_cp = (len_cp & 0xffffff80) >> 7;
-	if (len_cp > 0x7f) {
+	if (len_cp) {
 		*len_bytes_ptr |= 0x80;
 		++len_bytes_ptr;
 		++len_len;
