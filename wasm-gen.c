@@ -72,11 +72,12 @@ enum wasm_instructions {
 	I32_DIV_S = 0x6d // DIV_S is for signed integer
 };
 
-enum wasm_type_instruction {
-	WASM_FLOAT_64 = 0x7c,
-	WASM_FLOAT_32 = 0x7d,
-	WASM_INT_64 = 0x7e,
-	WASM_INT_32 = 0x7f
+enum wasm_type_threshold {
+    WASM_I32_THRESHOLD,
+    WASM_I64_THRESHOLD,
+    WASM_F32_THRESHOLD,
+    WASM_F64_THRESHOLD,
+    WASM_NONE
 };
 
 #define USING_GLOBALS
@@ -118,15 +119,21 @@ struct wasm_type_info {
     char type;
     char ret;
     short int nb_params;
-    short int nb_i32;
-    short int nb_i64;
-    short int nb_f32;
-    short int nb_f64;
+    union {
+	struct {
+	    short int nb_i32;
+	    short int nb_i64;
+	    short int nb_f32;
+	    short int nb_f64;
+	};
+	short int nb_gen_type[4];
+    };
     /* parsing variable */
     short int cmp_i32_loc;
     int block_cnt;
     short int locals_stack_len;
     short int wasm_stack_len;
+    int func_ret;
 };
 
 struct wasm_type_info cur_function;
@@ -145,12 +152,15 @@ static unsigned long func_bound_ind;
 ST_DATA int func_bound_add_epilog;
 #endif
 
-int func_size_ind;
+static int func_size_ind;
 
 static int wasm_func_idx;
 
 #define GLOBAL_STACK_BEGIN 0
 #define GLOBAL_STACK_END 1
+
+int func_call_idx;
+struct wasm_func_call file_func_calls[2048];
 
 static int cur_func_stack_byte_size()
 {
@@ -216,6 +226,25 @@ static void g_export(char c)
         section_realloc(export_section, ind1);
     export_section->data[export_ind] = c;
     export_ind = ind1;
+}
+
+static void g_import(char c)
+{
+    int ind1;
+    if (nocode_wanted)
+        return;
+    ind1 = import_ind + 1;
+    if (ind1 > import_section->data_allocated)
+        section_realloc(import_section, ind1);
+    import_section->data[import_ind] = c;
+    import_ind = ind1;
+}
+
+static void g_import_str(char *str)
+{
+    for (; *str; ++str) {
+	g_import(*str);
+    }
 }
 
 /*
@@ -316,7 +345,7 @@ ST_FUNC void load(int r, SValue *sv)
     uint32_t or = sv->r & VT_VALMASK;
     CType t = sv->type;
 
-    printf("==== load(%d, sv, lval/const %ld)===== ", r, sv ? sv->c.i : 0L);
+    printf("==== load(%d, sv, %s %ld %ld)===== ", r,  or == VT_CONST ? "const" : "not const" , sv ? sv->c.i : 0L, sv->r);
     /* printf("sv: %ld ", sv->c.i); */
     /* printf("r: %x\n", r); */
     /* printf("SV->R:"); */
@@ -335,13 +364,19 @@ ST_FUNC void load(int r, SValue *sv)
 	if (((t.t & VT_BTYPE) == VT_INT)) {
 	    g_code(I32_CONST);
 	    g_code_int(sv->c.i);
+	    cur_function.nb_i32++;
 	    /* printf("need to store at %d\n", local_idx); */
 	} else if ((t.t & VT_BTYPE) == VT_LLONG) {
 	    g_code(I64_CONST);
 	    g_code_int(sv->c.i);
+	    cur_function.nb_i64++;
 	} else {
 	    printf("can't load unknow constant\n");
 	}
+	g_code(LOCAL_SET);
+	g_code_int(cur_function.locals_stack_len); // local index
+	cur_function.locals_stack_len++;
+
     } else if (or == VT_LOCAL) {
 	    printf("i: %d ", sv->c.i);
 	    g_code_get_stack();
@@ -359,11 +394,20 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code_int(2); /* alignement */
 	    g_code_int(0);  /* offset */
 	    /* g_code(LOCAL_GET); // local set */
+	    g_code(LOCAL_SET);
+	    g_code_int(cur_function.locals_stack_len); // local index
+	    cur_function.nb_i32++;
+	    cur_function.locals_stack_len++;
+
     } else if (or == VT_CMP) {
 	    printf("\n%d ", cur_function.cmp_i32_loc);
 	    printf("CMP !!!!!\n");
 	    g_code(LOCAL_GET);
 	    g_code_int(cur_function.cmp_i32_loc);
+	    g_code(LOCAL_SET);
+	    g_code_int(cur_function.locals_stack_len); // local index
+	    cur_function.nb_i32++;
+	    cur_function.locals_stack_len++;
     } else {
 	tcc_error("load fail\n");
     }
@@ -399,23 +443,20 @@ ST_FUNC void store(int r, SValue *sv)
 	/* load stack into local */
 	/* sv->c.i value if VT_INT */
 	/* if there is 2  param, then param at index 2, is the first non param argument*/
-	printf("st i %d\n", sv->c.i);
 	int local_idx = cur_function.nb_params + (-1 * (sv->c.i / 4)) - 1;
+	printf("st i %d, idx: %d, sv->r: %x\n", sv->c.i, local_idx, sv->r);
 	if (((t.t & VT_BTYPE) == VT_INT)) {
 	  store_int:
-	    g_code(LOCAL_SET);
-	    g_code_int(local_idx); // local index
-
+	    /* get emulated stack pos */
 	    g_code_stack_op(I32_ADD, cur_function.nb_params * 8 - sv->c.i);
 
+	    /* get value */
 	    g_code(LOCAL_GET);
-	    g_code_int(local_idx); // local index
+	    g_code_int(cur_function.locals_stack_len - 1); // local index
 
 	    g_code(I32_STORE);
 	    g_code_int(2); /* alignement */
 	    g_code_int(0);  /* offset */
-	    cur_function.nb_i32++;
-	    cur_function.locals_stack_len++;
 	} else if ((t.t & VT_BTYPE) == VT_PTR) {
 	    printf("handle vt ptr");
 	    goto store_int;
@@ -457,11 +498,20 @@ ST_FUNC void gfunc_call(int nb_args)
 	load(0, vtop);
 	vtop--;
     }
+    for(i = 0; i < nb_args; i++) {
+	    g_code(LOCAL_GET);
+	    g_code_int(cur_function.locals_stack_len - (nb_args - i)); // local index
+    }
     // get function name: vtop[0].sym->v
     s = sym_find(vtop[0].sym->v);
     if (!s)
 	tcc_error("can't find function '%s'\n", get_tok_str(vtop[0].sym->v, NULL));
+    else
+	printf("call %s\n", get_tok_str(vtop[0].sym->v, NULL));
     function_idx = s->func_idx;
+    if (function_idx == -1) {
+	tcc_error("can't find function index of '%s'\n", get_tok_str(vtop[0].sym->v, NULL));
+    }
 
     // I need to global_set for stack index
     g_code_stack_op(I32_ADD, cur_func_stack_byte_size());
@@ -469,11 +519,18 @@ ST_FUNC void gfunc_call(int nb_args)
     g_code_int(0);
 
     g_code(CALL);
+    file_func_calls[func_call_idx].ind = ind;
+    file_func_calls[func_call_idx++].s = s;
     g_code_int(function_idx);
 
     g_code_stack_op(I32_SUB, cur_func_stack_byte_size());
     g_code(GLOBAL_SET);
     g_code_int(0);
+
+    g_code(LOCAL_SET);
+    g_code_int(cur_function.locals_stack_len); // local index
+    cur_function.nb_i32++;
+    cur_function.locals_stack_len++;
 
 
 /* // I need to reset global 0 to last stack */
@@ -505,6 +562,74 @@ void init_mem(void)
     g_mem_int(memory_limit); /* max limit */
 }
 
+ST_FUNC void gimport_func(int t, ...)
+{
+    struct wasm_type type = {0};
+    int nb_args;
+    va_list ap;
+    int arg_type;
+    int type_idx;
+    Sym *sym;
+
+    type.ti.type = 0x60;
+    type.ti.locals_stack_len = 3;
+    type.ti.nb_params = 3;
+    type.ti.block_cnt = 0;
+    va_start(ap, t);
+    for (nb_args = 0; (arg_type = va_arg(ap, int)) != 0; ++nb_args) {
+	type.params[nb_args] = arg_type;
+    }
+    va_end(ap);
+    type.ti.nb_i32 = nb_args;
+    type_idx = find_type(&type);
+
+    if (type_idx < 0) {
+	int i;
+
+	type_idx = wasm_type_cnt++;
+	all_types[type_idx] = type;
+	g_type(type.ti.type);
+	g_type(type.ti.nb_params);
+	for (i = 0; i < type.ti.nb_params; ++i) {
+	    printf("param type %x\n", type.params[i]);
+	    g_type(type.params[i]);
+	}
+	g_type(WASM_INT_32);
+    }
+
+    sym = sym_find(t);
+    if (!sym) {
+	printf("can find sym of %s\n", get_tok_str(t, 0));
+    } else {
+	sym->func_idx = -2 - nb_import;
+	nb_import++;
+    }
+    g_import(sizeof("env"));
+    g_import_str("env");
+    g_import(strlen(get_tok_str(t, 0)));
+    g_import_str(get_tok_str(t, 0));
+    g_import(0); /* func type */
+    g_import(type_idx);
+}
+
+static void init_file(void)
+{
+    Sym *sym;
+
+    /* as wasm mem is limited, 4 GB is more than enough */
+    g_glob(WASM_INT_32);
+    g_glob(1);
+    g_glob(I32_CONST);
+    g_glob(0);
+    g_glob(END);
+    g_glob(WASM_INT_32);
+    g_glob(1);
+    g_glob(I32_CONST);
+    g_glob(0);
+    g_glob(END);
+    init_mem();
+}
+
 ST_FUNC void gfunc_prolog(Sym *func_sym)
 {
     Sym *sym, *osym;
@@ -516,7 +641,6 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     int i;
     char *tmp;
 
-
     char *to_export = get_tok_str(func_sym->v, 0);
 
     g_export(strlen(to_export));
@@ -525,7 +649,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     g_export(0);
     ++nb_export;
     g_export(nb_func);
-// push get_tok_str(func_sym->v, 0) in export func
+    // push get_tok_str(func_sym->v, 0) in export func
     // write_section()
 
 
@@ -534,18 +658,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
      * we use 1 global to store stack index
      */
     if (!mem_ind) {
-	/* as wasm mem is limited, 4 GB is more than enough */
-	g_glob(WASM_INT_32);
-	g_glob(1);
-	g_glob(I32_CONST);
-	g_glob(0);
-	g_glob(END);
-	g_glob(WASM_INT_32);
-	g_glob(1);
-	g_glob(I32_CONST);
-	g_glob(0);
-	g_glob(END);
-	init_mem();
+	init_file();
     }
     type.ti.type = 0x60;
 
@@ -561,9 +674,7 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	t = &sym->type;
 	bt = t->t & VT_BTYPE;
 
-	sym_push(sym->v & ~SYM_FIELD, &sym->type,
-                 VT_LOCAL | VT_LVAL,
-                 loc);
+	sym_push(sym->v & ~SYM_FIELD, &sym->type, VT_LOCAL | VT_LVAL, loc);
 	loc++;
 	if (bt == VT_FLOAT) {
 	    type.ti.nb_f32++;
@@ -593,27 +704,32 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	printf("gtype %p el0: %x\n", type_section, type_section->data[0]);
 	g_type(type.ti.nb_params);
 	for (i = 0; i < type.ti.nb_params; ++i) {
-		printf("param type %x\n", type.params[i]);
-		g_type(type.params[i]);
+	    printf("param type %x\n", type.params[i]);
+	    g_type(type.params[i]);
 	}
 	if ((func_vt.t & VT_BTYPE) == VT_VOID) {
-		g_type(0);
+	    g_type(0);
+	    cur_function.func_ret = WASM_NONE;
 	} else {
-		g_type(1);
-		switch (func_vt.t & VT_BTYPE) {
-		case VT_INT:
-			g_type(WASM_INT_32);
-			break;
-		case VT_LLONG:
-			g_type(WASM_INT_64);
-			break;
-		case VT_FLOAT:
-			g_type(WASM_FLOAT_32);
-			break;
-		case VT_DOUBLE:
-			g_type(WASM_FLOAT_64);
-			break;
-		}
+	    g_type(1);
+	    switch (func_vt.t & VT_BTYPE) {
+	    case VT_INT:
+		cur_function.func_ret = WASM_I32_THRESHOLD;
+		g_type(WASM_INT_32);
+		break;
+	    case VT_LLONG:
+		cur_function.func_ret = WASM_I64_THRESHOLD;
+		g_type(WASM_INT_64);
+		break;
+	    case VT_FLOAT:
+		cur_function.func_ret = WASM_F32_THRESHOLD;
+		g_type(WASM_FLOAT_32);
+		break;
+	    case VT_DOUBLE:
+		cur_function.func_ret = WASM_F64_THRESHOLD;
+		g_type(WASM_FLOAT_64);
+		break;
+	    }
 	}
     }
 
@@ -686,6 +802,10 @@ ST_FUNC void gfunc_epilog(void)
     int func_nb_local = cur_function.locals_stack_len;
 
     printf("^^^^ gfunc_epilog() ^^^^^\n");
+    if (cur_function.func_ret != WASM_NONE) {
+	g_code(LOCAL_GET);
+	g_code_int(cur_function.locals_stack_len - 1);
+    }
     func_size = ind - func_size_ind;
     g_code(END);
     if (func_size > 255) {
@@ -811,10 +931,14 @@ ST_FUNC void gen_opi(int op)
     /* } */
 
     /* printf("%x - %x\n", vtop[-1].r, vtop[0].r); */
+    g_code(LOCAL_GET);
+    g_code_int(cur_function.locals_stack_len - 2); // local index
+    g_code(LOCAL_GET);
+    g_code_int(cur_function.locals_stack_len - 1); // local index
     if (!vtop[-1].r) {
-	    gv(RC_INT);
+	gv(RC_INT);
     } else {
-	    gv2(RC_INT, RC_INT);
+	gv2(RC_INT, RC_INT);
     }
     /* printf("OP: '%c'\n", op); */
     switch (op) {
@@ -860,12 +984,14 @@ ST_FUNC void gen_opi(int op)
     cur_function.wasm_stack_len -= 1;
     if (op >= TOK_ULT && op <= TOK_GT) {
 	vset_VT_CMP(op);
-	g_code(LOCAL_SET); // local set
-	g_code_int(cur_function.locals_stack_len);
-	cur_function.cmp_i32_loc = cur_function.locals_stack_len;
-	cur_function.locals_stack_len++;
-	cur_function.nb_i32++;
     }
+    g_code(LOCAL_SET); // local set
+    g_code_int(cur_function.locals_stack_len);
+    if (op >= TOK_ULT && op <= TOK_GT) {
+	cur_function.cmp_i32_loc = cur_function.locals_stack_len;
+    }
+    cur_function.locals_stack_len++;
+    cur_function.nb_i32++;
 }
 
 ST_FUNC void gen_opl(int op)

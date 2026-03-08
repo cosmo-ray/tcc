@@ -33,7 +33,7 @@ ST_DATA int rsym, anon_sym, ind, loc;
 
 #if defined TCC_TARGET_WASM
 ST_DATA int type_ind, mem_ind, nb_func, export_ind, nb_export;
-ST_DATA int wasm_func_ind, glob_ind;
+ST_DATA int wasm_func_ind, glob_ind, import_ind, nb_import;
 ST_DATA int wasm_type_cnt;
 #endif
 
@@ -656,6 +656,9 @@ ST_FUNC Sym *sym_push2(Sym **ps, int v, int t, int c)
     /* add in stack */
     s->prev = *ps;
     *ps = s;
+#if defined TCC_TARGET_WASM
+    s->func_idx = -1;
+#endif
     return s;
 }
 
@@ -1146,6 +1149,7 @@ ST_FUNC Sym *external_helper_sym(int v)
 /* push a reference to an helper function (such as memmove) */
 ST_FUNC void vpush_helper_func(int v)
 {
+    printf("vpush_helper_func %s\n", get_tok_str(v, NULL));
     vpushsym(&func_old_type, external_helper_sym(v));
 }
 
@@ -7455,6 +7459,9 @@ static void init_putz(init_params *p, unsigned long c, int size)
     if (p->sec) {
         /* nothing to do because globals are already set to zero */
     } else {
+#if defined TCC_TARGET_WASM
+	int need_memeset_init = !sym_find(TOK_memset);
+#endif
         vpush_helper_func(TOK_memset);
         vseti(VT_LOCAL, c);
         vpushi(0);
@@ -7462,6 +7469,11 @@ static void init_putz(init_params *p, unsigned long c, int size)
 #if defined TCC_TARGET_ARM && defined TCC_ARM_EABI
         vswap();  /* using __aeabi_memset(void*, size_t, int) */
 #endif
+#if defined TCC_TARGET_WASM
+	if (need_memeset_init)
+	    gimport_func(TOK_memset, WASM_INT_32, WASM_INT_32, WASM_INT_32, 0);
+#endif
+
         gfunc_call(3);
     }
 }

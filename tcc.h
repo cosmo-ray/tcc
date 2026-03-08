@@ -900,6 +900,7 @@ struct TCCState {
 #if defined TCC_TARGET_WASM
     Section *global_section;
     Section *function_section;
+    Section *import_section;
     Section *type_section;
 #endif
 #ifdef CONFIG_TCC_BCHECK
@@ -1425,8 +1426,23 @@ ST_DATA CType int_type, func_old_type, char_pointer_type;
 ST_DATA SValue *vtop;
 ST_DATA int rsym, anon_sym, ind, loc;
 #if defined TCC_TARGET_WASM
+
+enum wasm_type_instruction {
+	WASM_FLOAT_64 = 0x7c,
+	WASM_FLOAT_32 = 0x7d,
+	WASM_INT_64 = 0x7e,
+	WASM_INT_32 = 0x7f
+};
+
+struct wasm_func_call {
+	Sym *s;
+	int ind;
+};
+
 ST_DATA int type_ind, mem_ind, wasm_func_ind, wasm_type_cnt, nb_func, export_ind, nb_export;
-ST_DATA int glob_ind;
+ST_DATA int glob_ind, import_ind, nb_import;
+ST_DATA int func_call_idx;
+ST_DATA struct wasm_func_call file_func_calls[2048];
 #endif
 ST_DATA char debug_modes;
 
@@ -1616,7 +1632,9 @@ ST_FUNC void relocate(TCCState *s1, ElfW_Rel *rel, int type, unsigned char *ptr,
 /* ------------ xxx-gen.c ------------ */
 ST_DATA const char * const target_machine_defs;
 ST_DATA const int reg_classes[NB_REGS];
-
+#ifdef TCC_TARGET_WASM
+ST_FUNC void gimport_func(int t, ...);
+#endif
 ST_FUNC void gsym_addr(int t, int a);
 ST_FUNC void gsym(int t);
 ST_FUNC void load(int r, SValue *sv);
@@ -1990,6 +2008,7 @@ static inline void post_sem(TCCSem *p) {
 
 #if defined TCC_TARGET_WASM
 #define type_section	    TCC_STATE_VAR(type_section)
+#define import_section	    TCC_STATE_VAR(import_section)
 #define function_section    TCC_STATE_VAR(function_section)
 #define table_section	    symtab_section
 #define memory_section	    data_section
