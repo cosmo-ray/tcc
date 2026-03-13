@@ -594,6 +594,7 @@ ST_FUNC void gimport_func(int t, ...)
 	    printf("param type %x\n", type.params[i]);
 	    g_type(type.params[i]);
 	}
+	g_type(1);
 	g_type(WASM_INT_32);
     }
 
@@ -604,10 +605,12 @@ ST_FUNC void gimport_func(int t, ...)
 	sym->func_idx = -2 - nb_import;
 	nb_import++;
     }
-    g_import(sizeof("env"));
+    g_import(sizeof("env") - 1);
     g_import_str("env");
-    g_import(strlen(get_tok_str(t, 0)));
-    g_import_str(get_tok_str(t, 0));
+    char *func = get_tok_str(t, 0);
+    printf("func: %s\n", func);
+    g_import(strlen(func));
+    g_import_str(func);
     g_import(0); /* func type */
     g_import(type_idx);
 }
@@ -818,6 +821,11 @@ ST_FUNC void gfunc_epilog(void)
 		+ cur_function.nb_f64 ? 1 : 0 + cur_function.nb_f32 ? 1 : 0;
 	    int code_tot_size = ind + nb_types * 2;
 	    int i, i2 = 2;
+
+	    for (i = 0; i < func_call_idx; ++i) {
+		    if (file_func_calls[i].ind > func_size_ind)
+			    file_func_calls[i].ind += i2;
+	    }
 
 	    if (code_tot_size > code_section->data_allocated)
 		    section_realloc(code_section, code_tot_size);
