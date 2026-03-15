@@ -817,8 +817,8 @@ ST_FUNC void gfunc_epilog(void)
 	return;
     }
     if (func_nb_local) {
-	    int nb_types = 0 + cur_function.nb_i32 ? 1 : 0 + cur_function.nb_i64 ? 1 : 0
-		+ cur_function.nb_f64 ? 1 : 0 + cur_function.nb_f32 ? 1 : 0;
+	    int nb_types = 0 + (cur_function.nb_i32 ? 1 : 0) + (cur_function.nb_i64 ? 1 : 0)
+		    + (cur_function.nb_f64 ? 1 : 0) + (cur_function.nb_f32 ? 1 : 0);
 	    int code_tot_size = ind + nb_types * 2;
 	    int i, i2 = 2;
 
@@ -831,15 +831,18 @@ ST_FUNC void gfunc_epilog(void)
 		    section_realloc(code_section, code_tot_size);
 	    memmove(&code_section->data[func_size_ind + 2 + nb_types * 2],
 		    &code_section->data[func_size_ind + 2], func_size);
+	    printf("nb type %d\n", nb_types);
 	    code_section->data[func_size_ind + 1] = nb_types;
 
 #define PUSH_LOC(what, byte)						\
 	    if (cur_function.nb_##what) {				\
-		code_section->data[func_size_ind + i2] = cur_function.nb_i32; \
-		++i2;							\
-		code_section->data[func_size_ind + i2] = byte;		\
+		    printf("type %s %d\n", #what, cur_function.nb_##what); \
+		    ++i2;						\
+		    code_section->data[func_size_ind + i2] = cur_function.nb_##what; \
+		    ++i2;						\
+		    code_section->data[func_size_ind + i2] = byte;	\
 	    }
-
+	    --i2;
 	    PUSH_LOC(i32, WASM_INT_32);
 	    PUSH_LOC(i64, WASM_INT_64);
 	    PUSH_LOC(f32, WASM_FLOAT_32);
