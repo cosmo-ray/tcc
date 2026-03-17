@@ -5,7 +5,7 @@
 
 #define NB_REGS 19
 
-#define PTR_SIZE 8
+#define PTR_SIZE 4
 
 #define TREG_R(x) (x) // x = 0..7
 #define TREG_F(x) (x + 8) // x = 0..7
@@ -1003,11 +1003,6 @@ ST_FUNC void gen_opi(int op)
     }
     cur_function.locals_stack_len++;
     cur_function.nb_i32++;
-}
-
-ST_FUNC void gen_opl(int op)
-{
-    printf("gen_opl(%d)\n", op);
 }
 
 ST_FUNC void gen_opf(int op)

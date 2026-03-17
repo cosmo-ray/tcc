@@ -1790,7 +1790,6 @@ ST_FUNC void gen_increment_tcov (SValue *sv);
 
 /* ------------ wasm-gen.c ------------ */
 #ifdef TCC_TARGET_WASM
-ST_FUNC void gen_opl(int op);
 //ST_FUNC void gfunc_return(CType *func_type);
 ST_FUNC void gen_va_start(void);
 ST_FUNC void arch_transfer_ret_regs(int);
