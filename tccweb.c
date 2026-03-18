@@ -61,7 +61,7 @@ again:
 #define EXPORT_SECTION_NB 0x07
 #define CODE_SECTION_NB 0x0A
 
-#define TRY(that) do { if ((that) < 0) return -1;} while (0)
+#define TRY(that) do { if ((that) < 0) goto out;} while (0)
 
 int wasm_output_file(TCCState *s1, const char *filename)
 {
