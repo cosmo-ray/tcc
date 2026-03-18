@@ -176,7 +176,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
     nb_func = 0;
     wasm_func_ind = 0;
     mem_ind = 0;
-    ret = 1;
+    ret = 0;
   out:
     if (wasm_file != filename)
 	tcc_free(wasm_file);
