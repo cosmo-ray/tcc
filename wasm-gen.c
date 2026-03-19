@@ -942,15 +942,15 @@ ST_FUNC void gen_opi(int op)
     /* } */
 
     /* printf("%x - %x\n", vtop[-1].r, vtop[0].r); */
-    g_code(LOCAL_GET);
-    g_code_int(cur_function.locals_stack_len - 2); // local index
-    g_code(LOCAL_GET);
-    g_code_int(cur_function.locals_stack_len - 1); // local index
     if (!vtop[-1].r) {
 	gv(RC_INT);
     } else {
 	gv2(RC_INT, RC_INT);
     }
+    g_code(LOCAL_GET);
+    g_code_int(cur_function.locals_stack_len - 2); // local index
+    g_code(LOCAL_GET);
+    g_code_int(cur_function.locals_stack_len - 1); // local index
     /* printf("OP: '%c'\n", op); */
     switch (op) {
     case '+':
