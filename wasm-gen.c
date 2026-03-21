@@ -521,7 +521,8 @@ ST_FUNC void gfunc_call(int nb_args)
     g_code(CALL);
     file_func_calls[func_call_idx].ind = ind;
     file_func_calls[func_call_idx++].s = s;
-    g_code_int(function_idx);
+    if (function_idx > 0)
+	    g_code_int(function_idx);
 
     g_code_stack_op(I32_SUB, cur_func_stack_byte_size());
     g_code(GLOBAL_SET);
@@ -821,18 +822,17 @@ ST_FUNC void gfunc_epilog(void)
 		    + (cur_function.nb_f64 ? 1 : 0) + (cur_function.nb_f32 ? 1 : 0);
 	    int code_tot_size = ind + nb_types * 2;
 	    int i, i2 = 2;
-
-	    for (i = 0; i < func_call_idx; ++i) {
-		    if (file_func_calls[i].ind > func_size_ind)
-			    file_func_calls[i].ind += i2;
-	    }
-
 	    if (code_tot_size > code_section->data_allocated)
 		    section_realloc(code_section, code_tot_size);
 	    memmove(&code_section->data[func_size_ind + 2 + nb_types * 2],
 		    &code_section->data[func_size_ind + 2], func_size);
 	    printf("nb type %d\n", nb_types);
 	    code_section->data[func_size_ind + 1] = nb_types;
+	    for (i = 0; i < func_call_idx; ++i) {
+		    if (file_func_calls[i].ind > func_size_ind)
+			    file_func_calls[i].ind += i2;
+	    }
+
 
 #define PUSH_LOC(what, byte)						\
 	    if (cur_function.nb_##what) {				\
