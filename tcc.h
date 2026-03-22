@@ -1441,8 +1441,6 @@ struct wasm_func_call {
 
 ST_DATA int type_ind, mem_ind, wasm_func_ind, wasm_type_cnt, nb_func, export_ind, nb_export;
 ST_DATA int glob_ind, import_ind, nb_import;
-ST_DATA int func_call_idx;
-ST_DATA struct wasm_func_call file_func_calls[2048];
 #endif
 ST_DATA char debug_modes;
 

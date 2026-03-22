@@ -159,8 +159,8 @@ static int wasm_func_idx;
 #define GLOBAL_STACK_BEGIN 0
 #define GLOBAL_STACK_END 1
 
-int func_call_idx;
-struct wasm_func_call file_func_calls[2048];
+/* int nb_export_idx; */
+/* int nb_exports[]; */
 
 static int cur_func_stack_byte_size()
 {
@@ -519,10 +519,12 @@ ST_FUNC void gfunc_call(int nb_args)
     g_code_int(0);
 
     g_code(CALL);
-    file_func_calls[func_call_idx].ind = ind;
-    file_func_calls[func_call_idx++].s = s;
-    if (function_idx > 0)
-	    g_code_int(function_idx);
+    if (function_idx < 0) {
+	    printf("push: %d\n", -function_idx - 2);
+	    g_code_int(-function_idx - 2);
+    } else {
+	    g_code_int(function_idx + nb_import);
+    }
 
     g_code_stack_op(I32_SUB, cur_func_stack_byte_size());
     g_code(GLOBAL_SET);
@@ -620,6 +622,9 @@ static void init_file(void)
 {
     Sym *sym;
 
+    external_helper_sym(TOK_memset);
+    gimport_func(TOK_memset, WASM_INT_32, WASM_INT_32, WASM_INT_32, 0);
+
     /* as wasm mem is limited, 4 GB is more than enough */
     g_glob(WASM_INT_32);
     g_glob(1);
@@ -647,12 +652,15 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 
     char *to_export = get_tok_str(func_sym->v, 0);
 
+    if (!mem_ind) {
+	init_file();
+    }
     g_export(strlen(to_export));
     for (; *to_export; ++to_export)
 	    g_export(*to_export);
     g_export(0);
     ++nb_export;
-    g_export(nb_func);
+    g_export(nb_func + nb_import);
     // push get_tok_str(func_sym->v, 0) in export func
     // write_section()
 
@@ -661,9 +669,6 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
      * if no mem, assuming need to init global too
      * we use 1 global to store stack index
      */
-    if (!mem_ind) {
-	init_file();
-    }
     type.ti.type = 0x60;
 
     sym = func_type->ref;
@@ -812,7 +817,7 @@ ST_FUNC void gfunc_epilog(void)
     }
     func_size = ind - func_size_ind;
     g_code(END);
-    if (func_size > 255) {
+    if (func_size > 127) {
 	tcc_error_noabort("function too big, wasm need fixup !");
 	/* too fixup: memmove all fucntion byte code */
 	return;
@@ -828,10 +833,6 @@ ST_FUNC void gfunc_epilog(void)
 		    &code_section->data[func_size_ind + 2], func_size);
 	    printf("nb type %d\n", nb_types);
 	    code_section->data[func_size_ind + 1] = nb_types;
-	    for (i = 0; i < func_call_idx; ++i) {
-		    if (file_func_calls[i].ind > func_size_ind)
-			    file_func_calls[i].ind += i2;
-	    }
 
 
 #define PUSH_LOC(what, byte)						\

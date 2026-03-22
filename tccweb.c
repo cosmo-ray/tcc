@@ -73,17 +73,6 @@ int wasm_output_file(TCCState *s1, const char *filename)
     int filename_l = strlen(filename);
     char *wasm_file = NULL;
     int ret = -1;
-    int i;
-
-    /* if (nb_import) */
-    for (i = 0; i < func_call_idx; ++i) {
-	    int fidx = file_func_calls[i].s->func_idx;
-	    if (fidx < -1) {
-		    code_section->data[file_func_calls[i].ind] = -fidx + 2;
-	    } else if (fidx >= 0) {
-		    code_section->data[file_func_calls[i].ind] = fidx + nb_import;
-	    }
-    }
 
     if (file_type == TCC_OUTPUT_OBJ)
 	mode = 0666;
