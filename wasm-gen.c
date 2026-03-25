@@ -247,6 +247,24 @@ static void g_import_str(char *str)
     }
 }
 
+static void int_to_wasm_int(char *buf, int *sz, int i)
+{
+    char cur;
+    *sz = 1;
+
+  again:
+    cur = i & 0x7f;
+    i = (i & 0xffffff80) >> 7;
+    if (i) {
+	cur |= 0x80;
+	buf[*sz - 1] = cur;
+	*sz += 1;
+	goto again;
+    }
+    buf[*sz - 1] = cur;
+
+}
+
 /*
  * a number literal in the code, take only the place it require
  * so even if it's a VT_INT, it still might need to be shrink
@@ -754,8 +772,6 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     g_func(type_idx);
 
     func_size_ind = ind;
-    g_code(0); /* size pos, to fixup at epilog */
-    g_code(0); /* nb locals, to fixup at epilog */
     ++nb_func;
 
     sym = osym;
@@ -805,58 +821,65 @@ ST_FUNC void arch_transfer_ret_regs(int aftercall)
     printf("arch_transfer_ret_regs(%d)\n", aftercall);
 }
 
+#define PUSH_LOC(what, byte)						\
+    if (cur_function.nb_##what) {					\
+	printf("type %s %d\n", #what, cur_function.nb_##what);		\
+	++i2;								\
+	code_section->data[func_size_ind + i2] = cur_function.nb_##what; \
+	++i2;								\
+	code_section->data[func_size_ind + i2] = byte;			\
+    }
+
 ST_FUNC void gfunc_epilog(void)
 {
     int func_size;
     int func_nb_local = cur_function.locals_stack_len;
+    char func_size_buf[16];
+    int func_size_nb;
+    int nb_types = 0;
+    int code_tot_size;
+    int i, i2;
 
     printf("^^^^ gfunc_epilog() ^^^^^\n");
     if (cur_function.func_ret != WASM_NONE) {
 	g_code(LOCAL_GET);
 	g_code_int(cur_function.locals_stack_len - 1);
     }
-    func_size = ind - func_size_ind;
     g_code(END);
-    if (func_size > 127) {
-	tcc_error_noabort("function too big, wasm need fixup !");
-	/* too fixup: memmove all fucntion byte code */
-	return;
-    }
+
+    /* no g_code past this point */
+    func_size = ind - func_size_ind;
+
     if (func_nb_local) {
-	    int nb_types = 0 + (cur_function.nb_i32 ? 1 : 0) + (cur_function.nb_i64 ? 1 : 0)
-		    + (cur_function.nb_f64 ? 1 : 0) + (cur_function.nb_f32 ? 1 : 0);
-	    int code_tot_size = ind + nb_types * 2;
-	    int i, i2 = 2;
-	    if (code_tot_size > code_section->data_allocated)
-		    section_realloc(code_section, code_tot_size);
-	    memmove(&code_section->data[func_size_ind + 2 + nb_types * 2],
-		    &code_section->data[func_size_ind + 2], func_size);
-	    printf("nb type %d\n", nb_types);
-	    code_section->data[func_size_ind + 1] = nb_types;
+	nb_types = 0 + (cur_function.nb_i32 ? 1 : 0) + (cur_function.nb_i64 ? 1 : 0)
+	    + (cur_function.nb_f64 ? 1 : 0) + (cur_function.nb_f32 ? 1 : 0);
+    }
+    int_to_wasm_int(func_size_buf, &func_size_nb, func_size + nb_types * 2 + 1);
+
+    i2 = func_size_nb + 1;
+    code_tot_size = ind + i2 + nb_types * 2;
+    if (code_tot_size > code_section->data_allocated)
+	section_realloc(code_section, code_tot_size);
+    printf("i2 %d, func_size %d func_size_nb %d\n", i2, func_size, func_size_nb);
+    memmove(&code_section->data[func_size_ind + i2 + nb_types * 2],
+	    &code_section->data[func_size_ind], func_size);
+    printf("nb type %d\n", nb_types);
+    code_section->data[func_size_ind + i2 - 1] = nb_types;
 
 
-#define PUSH_LOC(what, byte)						\
-	    if (cur_function.nb_##what) {				\
-		    printf("type %s %d\n", #what, cur_function.nb_##what); \
-		    ++i2;						\
-		    code_section->data[func_size_ind + i2] = cur_function.nb_##what; \
-		    ++i2;						\
-		    code_section->data[func_size_ind + i2] = byte;	\
-	    }
-	    --i2;
-	    PUSH_LOC(i32, WASM_INT_32);
-	    PUSH_LOC(i64, WASM_INT_64);
-	    PUSH_LOC(f32, WASM_FLOAT_32);
-	    PUSH_LOC(f64, WASM_FLOAT_64);
+    --i2;
+    PUSH_LOC(i32, WASM_INT_32);
+    PUSH_LOC(i64, WASM_INT_64);
+    PUSH_LOC(f32, WASM_FLOAT_32);
+    PUSH_LOC(f64, WASM_FLOAT_64);
+
+    for (i = 0; i < func_size_nb; ++i) {
+	code_section->data[func_size_ind + i] = func_size_buf[i];
+    }
+    ind = code_tot_size;
+}
 
 #undef PUSH_LOC
-
-	    code_section->data[func_size_ind] = func_size + nb_types * 2;
-	    ind += nb_types * 2;
-    } else {
-	    code_section->data[func_size_ind] = func_size;
-    }
-}
 
 ST_FUNC void gen_va_start(void)
 {
