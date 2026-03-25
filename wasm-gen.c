@@ -639,6 +639,7 @@ ST_FUNC void gimport_func(int t, ...)
 static void init_file(void)
 {
     Sym *sym;
+    char *to_export;
 
     external_helper_sym(TOK_memset);
     gimport_func(TOK_memset, WASM_INT_32, WASM_INT_32, WASM_INT_32, 0);
@@ -655,6 +656,15 @@ static void init_file(void)
     g_glob(0);
     g_glob(END);
     init_mem();
+
+    to_export = "memory";
+    g_export(sizeof "memory" - 1);
+    for (; *to_export; ++to_export)
+	g_export(*to_export);
+    g_export(2); // export mem
+    g_export(0); // memory 0
+    ++nb_export;
+
 }
 
 ST_FUNC void gfunc_prolog(Sym *func_sym)
@@ -677,8 +687,9 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     for (; *to_export; ++to_export)
 	    g_export(*to_export);
     g_export(0);
-    ++nb_export;
     g_export(nb_func + nb_import);
+    ++nb_export;
+
     // push get_tok_str(func_sym->v, 0) in export func
     // write_section()
 
