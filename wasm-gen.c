@@ -513,11 +513,14 @@ ST_FUNC void gfunc_call(int nb_args)
 
     printf("gfunc_call(%d)\n", nb_args);
     for(i = 0; i < nb_args; i++) {
-	load(0, vtop);
-	vtop--;
+	printf("%d\n", nb_args - (i + 1));
+	load(0, &vtop[-(nb_args - (i + 1))]);
     }
+    vtop -= nb_args;
     for(i = 0; i < nb_args; i++) {
 	    g_code(LOCAL_GET);
+	    printf("load %d - %d\n", cur_function.locals_stack_len - (nb_args - i),
+		nb_args - i);
 	    g_code_int(cur_function.locals_stack_len - (nb_args - i)); // local index
     }
     // get function name: vtop[0].sym->v
