@@ -85,13 +85,13 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	    "const buf = fs.readFileSync('./";
 	char js_p1[] =
 	    "');\n"
-	    "const memory = new WebAssembly.Memory({ initial: 10 });\n\n"
 	    "const env = {\n"
 	    "memory,\n"
 	    "memset(ptr, value, size) {\n"
-	    "	const mem = new Uint8Array(memory.buffer);\n"
-	    "	mem.fill(value & 0xff, ptr, ptr + size);\n"
-	    "	return ptr;\n"
+		"\tlet mem = glob_wasm.instance.exports.memory;\n"
+		"\tconst membuf = new Uint8Array(mem.buffer);\n"
+		"\tmembuf.fill(value & 0xff, ptr, ptr + size);\n"
+		"\treturn ptr;\n"
 	    "}\n"
 	    "};\n"
 	    "const lib = WebAssembly.instantiate(new Uint8Array(buf), { env }).\n"
