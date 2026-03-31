@@ -1014,6 +1014,9 @@ ST_FUNC void gen_opi(int op)
     case '|':
 	    g_code(I32_OR);
 	    break;
+    case '&':
+	    g_code(I32_AND);
+	    break;
     case TOK_EQ:
 	    g_code(I32_EQ);
 	    break;
