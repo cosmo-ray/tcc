@@ -86,7 +86,11 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	char js_p1[] =
 	    "');\n"
 	    "const env = {\n"
-	    "memory,\n"
+	    "show_mem() {\n"
+		"\tlet mem = glob_wasm.instance.exports.memory;\n"
+		"\tconst membuf = new Uint8Array(mem.buffer);\n"
+		"\tconsole.log(membuf);\n"
+	    "},\n"
 	    "memset(ptr, value, size) {\n"
 		"\tlet mem = glob_wasm.instance.exports.memory;\n"
 		"\tconst membuf = new Uint8Array(mem.buffer);\n"

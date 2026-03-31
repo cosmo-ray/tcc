@@ -654,6 +654,8 @@ static void init_file(void)
 
     external_helper_sym(TOK_memset);
     gimport_func(TOK_memset, WASM_INT_32, WASM_INT_32, WASM_INT_32, 0);
+    external_helper_sym(TOK_show_mem);
+    gimport_func(TOK_show_mem, 0);
 
     /* as wasm mem is limited, 4 GB is more than enough */
     g_glob(WASM_INT_32);

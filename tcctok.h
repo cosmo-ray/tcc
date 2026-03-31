@@ -225,6 +225,9 @@
      DEF(TOK___ashldi3, "__ashldi3")
      DEF(TOK___floatundisf, "__floatundisf")
      DEF(TOK___floatundidf, "__floatundidf")
+# if defined TCC_TARGET_WASM
+     DEF(TOK_show_mem, "show_mem")
+#  endif
 # ifndef TCC_ARM_VFP
      DEF(TOK___floatundixf, "__floatundixf")
      DEF(TOK___fixunsxfdi, "__fixunsxfdi")
