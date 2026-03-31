@@ -85,6 +85,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	    "const buf = fs.readFileSync('./";
 	char js_p1[] =
 	    "');\n"
+	    "let glob_wasm = null;\n"
 	    "const env = {\n"
 	    "show_mem() {\n"
 		"\tlet mem = glob_wasm.instance.exports.memory;\n"
@@ -100,6 +101,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	    "};\n"
 	    "const lib = WebAssembly.instantiate(new Uint8Array(buf), { env }).\n"
 	    "then(res => {\n"
+	    "   glob_wasm = res\n"
 	    "	for (var i=1;i<=10;i++) {\n"
 	    "		let r = res.instance.exports.";
 	char js_p2[] ="(i, i+1)\n"
