@@ -404,36 +404,41 @@ ST_FUNC void load(int r, SValue *sv)
 	cur_function.locals_stack_len++;
 
     } else if (or == VT_LOCAL) {
-	    printf("i: %d ", sv->c.i);
-	    g_code_get_stack();
-	    /* g_code(I32_CONST); */
-	    if ((int64_t)sv->c.i < 0) {
-		g_code(I32_CONST);
-		g_code_int(cur_function.nb_params * 8 - sv->c.i); // local index
-		g_code(I32_ADD);
-	    } else {
-		g_code(I32_CONST);
-		g_code_int(sv->c.i * 8); // local index
-		g_code(I32_ADD);
-	    }
+	int is_ptr = !(sv->r & VT_LVAL);
+
+	printf("i: %d ", sv->c.i);
+	printf("t: %x - %x\n", t.t, sv->r & VT_LVAL);
+	g_code_get_stack();
+	/* g_code(I32_CONST); */
+	if ((int64_t)sv->c.i < 0) {
+	    g_code(I32_CONST);
+	    g_code_int(cur_function.nb_params * 8 - sv->c.i); // local index
+	    g_code(I32_ADD);
+	} else {
+	    g_code(I32_CONST);
+	    g_code_int(sv->c.i * 8); // local index
+	    g_code(I32_ADD);
+	}
+	if (!is_ptr) {
 	    g_code(I32_LOAD);
 	    g_code_int(2); /* alignement */
 	    g_code_int(0);  /* offset */
-	    /* g_code(LOCAL_GET); // local set */
-	    g_code(LOCAL_SET);
-	    g_code_int(cur_function.locals_stack_len); // local index
-	    cur_function.nb_i32++;
-	    cur_function.locals_stack_len++;
+	}
+	/* g_code(LOCAL_GET); // local set */
+	g_code(LOCAL_SET);
+	g_code_int(cur_function.locals_stack_len); // local index
+	cur_function.nb_i32++;
+	cur_function.locals_stack_len++;
 
     } else if (or == VT_CMP) {
-	    printf("\n%d ", cur_function.cmp_i32_loc);
-	    printf("CMP !!!!!\n");
-	    g_code(LOCAL_GET);
-	    g_code_int(cur_function.cmp_i32_loc);
-	    g_code(LOCAL_SET);
-	    g_code_int(cur_function.locals_stack_len); // local index
-	    cur_function.nb_i32++;
-	    cur_function.locals_stack_len++;
+	printf("\n%d ", cur_function.cmp_i32_loc);
+	printf("CMP !!!!!\n");
+	g_code(LOCAL_GET);
+	g_code_int(cur_function.cmp_i32_loc);
+	g_code(LOCAL_SET);
+	g_code_int(cur_function.locals_stack_len); // local index
+	cur_function.nb_i32++;
+	cur_function.locals_stack_len++;
     } else {
 	tcc_error("load fail\n");
     }
