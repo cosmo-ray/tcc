@@ -610,12 +610,12 @@ ST_FUNC void gimport_func(int t, ...)
 
     type.ti.type = 0x60;
     type.ti.locals_stack_len = 3;
-    type.ti.nb_params = 3;
     type.ti.block_cnt = 0;
     va_start(ap, t);
     for (nb_args = 0; (arg_type = va_arg(ap, int)) != 0; ++nb_args) {
 	type.params[nb_args] = arg_type;
     }
+    type.ti.nb_params = nb_args;
     va_end(ap);
     type.ti.nb_i32 = nb_args;
     type_idx = find_type(&type);
