@@ -66,10 +66,18 @@ enum wasm_instructions {
 	I32_LE_S = 0x4c,
 	I32_LE_U = 0x4d,
 	I32_GE_S = 0x4e,
+	I64_GT_S = 0x55,
+	I64_GT_U = 0x56,
+	F32_GT = 0x5e,
+	F64_GT = 0x64,
 	I32_ADD = 0x6a,
 	I32_SUB = 0x6b,
 	I32_MUL = 0x6c,
-	I32_DIV_S = 0x6d // DIV_S is for signed integer
+	I32_DIV_S = 0x6d, // DIV_S is for signed integer
+	I32_AND = 0x71,
+	I32_OR = 0x72,
+	I64_AND = 0x83,
+	I64_OR = 0x84
 };
 
 enum wasm_type_threshold {
@@ -1002,6 +1010,9 @@ ST_FUNC void gen_opi(int op)
 	    break;
     case '/':
 	    g_code(I32_DIV_S);
+	    break;
+    case '|':
+	    g_code(I32_OR);
 	    break;
     case TOK_EQ:
 	    g_code(I32_EQ);
