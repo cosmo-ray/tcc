@@ -900,6 +900,7 @@ struct TCCState {
 #if defined TCC_TARGET_WASM
     Section *global_section;
     Section *function_section;
+    Section *memory_section;
     Section *import_section;
     Section *type_section;
 #endif
@@ -2008,7 +2009,7 @@ static inline void post_sem(TCCSem *p) {
 #define import_section	    TCC_STATE_VAR(import_section)
 #define function_section    TCC_STATE_VAR(function_section)
 #define table_section	    symtab_section
-#define memory_section	    data_section
+#define memory_section	    TCC_STATE_VAR(memory_section)
 #define global_section	    TCC_STATE_VAR(global_section)
 #define export_section	    TCC_STATE_VAR(dynsymtab_section)
 #define code_section	    text_section

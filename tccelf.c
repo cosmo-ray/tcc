@@ -85,6 +85,7 @@ ST_FUNC void tccelf_new(TCCState *s)
 #ifdef TCC_TARGET_WASM
     global_section = new_section(s, ".global", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR);
     function_section = new_section(s, ".function", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE);
+    memory_section = new_section(s, ".memory", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE);
     type_section = new_section(s, ".type", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE);
     import_section = new_section(s, ".import", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE);
 #endif
