@@ -91,8 +91,6 @@ enum wasm_type_threshold {
 #define USING_GLOBALS
 #include "tcc.h"
 
-static int block_cnt;
-
 ST_DATA const char * const target_machine_defs =
     "__wasm__\0"
     "__wasm\0"
@@ -155,8 +153,8 @@ static struct wasm_type all_types[WASM_MAX_TYPES];
 
 
 #if defined(CONFIG_TCC_BCHECK)
-static addr_t func_bound_offset;
-static unsigned long func_bound_ind;
+/* static addr_t func_bound_offset; */
+/* static unsigned long func_bound_ind; */
 ST_DATA int func_bound_add_epilog;
 #endif
 
@@ -248,29 +246,11 @@ static void g_import(char c)
     import_ind = ind1;
 }
 
-static void g_import_str(char *str)
+static void g_import_str(const char *str)
 {
     for (; *str; ++str) {
 	g_import(*str);
     }
-}
-
-static void int_to_wasm_int(char *buf, int *sz, int i)
-{
-    char cur;
-    *sz = 1;
-
-  again:
-    cur = i & 0x7f;
-    i = (i & 0xffffff80) >> 7;
-    if (i) {
-	cur |= 0x80;
-	buf[*sz - 1] = cur;
-	*sz += 1;
-	goto again;
-    }
-    buf[*sz - 1] = cur;
-
 }
 
 /*
@@ -319,13 +299,13 @@ static void g_mem_int(int i)
     g_mem(cur);
 }
 
-static int g_code_get_stack()
+static void g_code_get_stack()
 {
     g_code(GLOBAL_GET);
     g_code_int(0);
 }
 
-static int g_code_stack_op(int op, int num)
+static void g_code_stack_op(int op, int num)
 {
     g_code_get_stack();
     g_code(I32_CONST);
@@ -363,6 +343,17 @@ void print_r_mask(uint32_t r, CType t)
     printf("\n");
 }
 
+
+ST_FUNC void wasm_data_cpy(char *buf, int nb)
+{
+    g_data(I32_CONST);
+    g_data_int(wasm_data_pos);
+    g_data_int(nb);
+    g_data_buf(buf, nb);
+    wasm_data_pos += nb;
+    ++nb_wasm_data;
+}
+
 /* most generate code that load from stack to register */
 /* exept wasm have no register, but it have it's own stack instead */
 /* store something into wasm stack */
@@ -371,7 +362,7 @@ ST_FUNC void load(int r, SValue *sv)
     uint32_t or = sv->r & VT_VALMASK;
     CType t = sv->type;
 
-    printf("==== load(%d, sv, %s %ld %ld)===== ", r,  or == VT_CONST ? "const" : "not const" , sv ? sv->c.i : 0L, sv->r);
+    printf("==== load(%d, sv, %s %ld %d)===== ", r,  or == VT_CONST ? "const" : "not const" , sv ? sv->c.i : 0L, sv->r);
     /* printf("sv: %ld ", sv->c.i); */
     /* printf("r: %x\n", r); */
     /* printf("SV->R:"); */
@@ -382,7 +373,7 @@ ST_FUNC void load(int r, SValue *sv)
     /* 	    printf("(ny sym)\n"); */
     /* } */
     if (or == VT_CONST) {
-	int local_idx = cur_function.nb_params + (-1 * (sv->c.i / 4)) - 1;
+	/* int local_idx = cur_function.nb_params + (-1 * (sv->c.i / 4)) - 1; */
 	/* printf("cur func: %d\n", cur_function->nb_params); */
 
 	/* load const into mem */
@@ -397,7 +388,7 @@ ST_FUNC void load(int r, SValue *sv)
 	    g_code_int(sv->c.i);
 	    cur_function.nb_i64++;
 	} else {
-	    printf("can't load unknow constant\n");
+	    printf("can't load unknow constant %x\n", t.t);
 	}
 	g_code(LOCAL_SET);
 	g_code_int(cur_function.locals_stack_len); // local index
@@ -406,7 +397,7 @@ ST_FUNC void load(int r, SValue *sv)
     } else if (or == VT_LOCAL) {
 	int is_ptr = !(sv->r & VT_LVAL);
 
-	printf("i: %d ", sv->c.i);
+	printf("i: %ld ", sv->c.i);
 	printf("t: %x - %x\n", t.t, sv->r & VT_LVAL);
 	g_code_get_stack();
 	/* g_code(I32_CONST); */
@@ -439,6 +430,8 @@ ST_FUNC void load(int r, SValue *sv)
 	g_code_int(cur_function.locals_stack_len); // local index
 	cur_function.nb_i32++;
 	cur_function.locals_stack_len++;
+    } else if (sv->r == VT_LVAL) {
+	printf("what should I do now\n");
     } else {
 	tcc_error("load fail\n");
     }
@@ -470,12 +463,13 @@ ST_FUNC void store(int r, SValue *sv)
     CType t = sv->type;
 
     printf("---- store(%d. sv) ----\n", r);
+    printf("t: %x - %x\n", t.t, sv->r & VT_LVAL);
     if (or == VT_LOCAL) {
 	/* load stack into local */
 	/* sv->c.i value if VT_INT */
 	/* if there is 2  param, then param at index 2, is the first non param argument*/
 	int local_idx = cur_function.nb_params + (-1 * (sv->c.i / 4)) - 1;
-	printf("st i %d, idx: %d, sv->r: %x\n", sv->c.i, local_idx, sv->r);
+	printf("st i %ld, idx: %d, sv->r: %x\n", sv->c.i, local_idx, sv->r);
 	if (((t.t & VT_BTYPE) == VT_INT)) {
 	  store_int:
 	    /* get emulated stack pos */
@@ -607,6 +601,7 @@ ST_FUNC void gimport_func(int t, ...)
     int arg_type;
     int type_idx;
     Sym *sym;
+    const char *func;
 
     type.ti.type = 0x60;
     type.ti.locals_stack_len = 3;
@@ -644,7 +639,7 @@ ST_FUNC void gimport_func(int t, ...)
     }
     g_import(sizeof("env") - 1);
     g_import_str("env");
-    char *func = get_tok_str(t, 0);
+    func = get_tok_str(t, 0);
     printf("func: %s\n", func);
     g_import(strlen(func));
     g_import_str(func);
@@ -654,8 +649,7 @@ ST_FUNC void gimport_func(int t, ...)
 
 static void init_file(void)
 {
-    Sym *sym;
-    char *to_export;
+    const char *to_export;
 
     external_helper_sym(TOK_memset);
     gimport_func(TOK_memset, WASM_INT_32, WASM_INT_32, WASM_INT_32, 0);
@@ -694,9 +688,8 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
     struct wasm_type type = {0};
     int type_idx;
     int i;
-    char *tmp;
 
-    char *to_export = get_tok_str(func_sym->v, 0);
+    const char *to_export = get_tok_str(func_sym->v, 0);
 
     if (!mem_ind) {
 	init_file();
@@ -971,7 +964,7 @@ ST_FUNC void gen_opi(int op)
      */
 
     /* don't know why this is done */
-    int d = get_reg(RC_INT);
+    get_reg(RC_INT);
     /* CType arg0_t = vtop[-1].type; */
     /* CType arg1_t = vtop[0].type; */
 

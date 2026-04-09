@@ -35,7 +35,7 @@ ST_FUNC void relocate_plt(TCCState *s1)
 void relocate(TCCState *s1, ElfW_Rel *rel, int type, unsigned char *ptr,
               addr_t addr, addr_t val)
 {
-	printf("realocate(s1, rel, %d, %s, %ld, %ld)\n",
+	printf("realocate(s1, rel, %d, %s, %d, %d)\n",
 	       type, ptr, addr, val);
 }
 
