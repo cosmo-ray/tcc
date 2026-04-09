@@ -1,10 +1,5 @@
-int aB(int a, int b)
+int main(int a, int b)
 {
-	return a + b;
-}
-
-int main(void)
-{
-	int r = aB(1, 2);
+	int r = aB(a, b);
 	return r;
 }

@@ -165,8 +165,23 @@ static int wasm_func_idx;
 #define GLOBAL_STACK_BEGIN 0
 #define GLOBAL_STACK_END 1
 
-/* int nb_export_idx; */
-/* int nb_exports[]; */
+
+static void int_to_wasm_int(char *buf, int *sz, int i)
+{
+    char cur;
+    *sz = 1;
+
+  again:
+    cur = i & 0x7f;
+    i = (i & 0xffffff80) >> 7;
+    if (i) {
+	cur |= 0x80;
+	buf[*sz - 1] = cur;
+	*sz += 1;
+	goto again;
+    }
+    buf[*sz - 1] = cur;
+}
 
 static int cur_func_stack_byte_size()
 {
@@ -232,6 +247,32 @@ static void g_export(char c)
         section_realloc(export_section, ind1);
     export_section->data[export_ind] = c;
     export_ind = ind1;
+}
+
+static void g_data(char c)
+{
+    int ind1;
+    if (nocode_wanted)
+        return;
+    ind1 = data_ind + 1;
+    if (ind1 > data_section->data_allocated)
+        section_realloc(data_section, ind1);
+    data_section->data[data_ind] = c;
+    data_ind = ind1;
+}
+
+static void g_data_buf(char *str, int l)
+{
+    for (int i = 0; i < l; ++i) {
+	g_data(str[i]);
+    }
+}
+
+static void g_data_int(int i)
+{
+    int sz;
+    int_to_wasm_int((char *)&data_section->data[data_ind], &sz, i);
+    data_ind += sz;
 }
 
 static void g_import(char c)

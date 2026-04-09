@@ -34,7 +34,8 @@ ST_DATA int rsym, anon_sym, ind, loc;
 #if defined TCC_TARGET_WASM
 ST_DATA int type_ind, mem_ind, nb_func, export_ind, nb_export;
 ST_DATA int wasm_func_ind, glob_ind, import_ind, nb_import;
-ST_DATA int wasm_type_cnt;
+ST_DATA int wasm_type_cnt, data_ind, nb_wasm_data;
+ST_DATA int wasm_data_pos = 0x4000;
 #endif
 
 ST_DATA Sym *global_stack;
@@ -7459,19 +7460,12 @@ static void init_putz(init_params *p, unsigned long c, int size)
     if (p->sec) {
         /* nothing to do because globals are already set to zero */
     } else {
-#if defined TCC_TARGET_WASM
-	int need_memeset_init = !sym_find(TOK_memset);
-#endif
         vpush_helper_func(TOK_memset);
         vseti(VT_LOCAL, c);
         vpushi(0);
         vpushs(size);
 #if defined TCC_TARGET_ARM && defined TCC_ARM_EABI
         vswap();  /* using __aeabi_memset(void*, size_t, int) */
-#endif
-#if defined TCC_TARGET_WASM
-	if (need_memeset_init)
-	    gimport_func(TOK_memset, WASM_INT_32, WASM_INT_32, WASM_INT_32, 0);
 #endif
 
         gfunc_call(3);
@@ -7928,8 +7922,13 @@ static void decl_initializer(init_params *p, CType *type, unsigned long c, int f
                    specifically */
                 if (p->sec && size1 == 1) {
                     init_assert(p, c + nb);
-                    if (!NODATA_WANTED)
-                      memcpy(p->sec->data + c, initstr.data, nb);
+                    if (!NODATA_WANTED) {
+#if defined TCC_TARGET_WASM
+			wasm_data_cpy(initstr.data, nb);
+#else
+			memcpy(p->sec->data + c, initstr.data, nb);
+#endif
+		    }
                 } else {
                     for(i=0;i<n;i++) {
                         if (i >= nb) {

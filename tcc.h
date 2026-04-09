@@ -1441,7 +1441,7 @@ struct wasm_func_call {
 };
 
 ST_DATA int type_ind, mem_ind, wasm_func_ind, wasm_type_cnt, nb_func, export_ind, nb_export;
-ST_DATA int glob_ind, import_ind, nb_import;
+ST_DATA int glob_ind, import_ind, nb_import, data_ind, nb_wasm_data, wasm_data_pos;
 #endif
 ST_DATA char debug_modes;
 
@@ -1794,6 +1794,7 @@ ST_FUNC void gen_va_start(void);
 ST_FUNC void arch_transfer_ret_regs(int);
 ST_FUNC void gen_cvt_sxtw(void);
 ST_FUNC void gen_increment_tcov (SValue *sv);
+ST_FUNC void wasm_data_cpy(char *buf, int nb);
 #endif
 
 /* ------------ c67-gen.c ------------ */

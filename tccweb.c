@@ -60,6 +60,7 @@ again:
 #define GLOBAL_SECTION_NB 0x06
 #define EXPORT_SECTION_NB 0x07
 #define CODE_SECTION_NB 0x0A
+#define DATA_SECTION_NB 0x0B
 
 #define TRY(that) do { if ((that) < 0) goto out;} while (0)
 
@@ -167,10 +168,13 @@ int wasm_output_file(TCCState *s1, const char *filename)
     TRY(write_section(GLOBAL_SECTION_NB, fp, global_section, 2));
     TRY(write_section(EXPORT_SECTION_NB, fp, export_section, nb_export));
     TRY(write_section(CODE_SECTION_NB, fp, code_section, nb_func));
+    TRY(write_section(DATA_SECTION_NB, fp, data_section, nb_wasm_data));
     type_ind = 0;
     nb_func = 0;
     wasm_func_ind = 0;
     mem_ind = 0;
+    nb_wasm_data = 0;
+    wasm_data_pos = 0x4000;
     ret = 0;
   out:
     if (wasm_file != filename)

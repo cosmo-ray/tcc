@@ -1,5 +1,6 @@
 int main()
 {
 	int r = 1;
-	return r;
+	long long r1 = 2;
+	return r + r1;
 }
