@@ -1794,7 +1794,7 @@ ST_FUNC void gen_va_start(void);
 ST_FUNC void arch_transfer_ret_regs(int);
 ST_FUNC void gen_cvt_sxtw(void);
 ST_FUNC void gen_increment_tcov (SValue *sv);
-ST_FUNC void wasm_data_cpy(char *buf, int nb);
+ST_FUNC void wasm_data_cpy(char *buf, int offset, int nb);
 #endif
 
 /* ------------ c67-gen.c ------------ */

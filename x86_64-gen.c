@@ -471,6 +471,7 @@ void load(int r, SValue *sv)
     } else {
         if (v == VT_CONST) {
             if (fr & VT_SYM) {
+		printf("constant %lx\n", fc);
 #ifdef TCC_TARGET_PE
                 orex(1,0,r,0x8d);
                 o(0x05 + REG_VALUE(r) * 8); /* lea xx(%rip), r */

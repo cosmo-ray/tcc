@@ -7921,10 +7921,14 @@ static void decl_initializer(init_params *p, CType *type, unsigned long c, int f
                    string in global variable, we handle it
                    specifically */
                 if (p->sec && size1 == 1) {
-                    init_assert(p, c + nb);
+#if defined TCC_TARGET_WASM
+		    init_assert(p, c + nb - wasm_data_pos);
+#else
+		    init_assert(p, c + nb);
+#endif
                     if (!NODATA_WANTED) {
 #if defined TCC_TARGET_WASM
-			wasm_data_cpy(initstr.data, nb);
+			wasm_data_cpy(initstr.data, c, nb);
 #else
 			memcpy(p->sec->data + c, initstr.data, nb);
 #endif
@@ -8249,6 +8253,9 @@ static void decl_initializer_alloc(CType *type, AttributeDef *ad, int r,
             addr = align; /* SHN_COMMON is special, symbol value is align */
 	    sec = common_section;
         }
+#if defined TCC_TARGET_WASM
+	addr += wasm_data_pos;
+#endif
 
         if (v) {
             if (!sym) {
@@ -8307,6 +8314,7 @@ static void decl_initializer_alloc(CType *type, AttributeDef *ad, int r,
         cur_scope->vla.num++;
     } else if (has_init) {
         p.sec = sec;
+	printf("addr: %d\n", addr);
         decl_initializer(&p, type, addr, DIF_FIRST);
         /* patch flexible array member size back to -1, */
         /* for possible subsequent similar declarations */

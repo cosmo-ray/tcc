@@ -385,13 +385,13 @@ void print_r_mask(uint32_t r, CType t)
 }
 
 
-ST_FUNC void wasm_data_cpy(char *buf, int nb)
+ST_FUNC void wasm_data_cpy(char *buf, int pos, int nb)
 {
+    printf("wasm data '%s' cpy at %d\n", buf, pos);
     g_data(I32_CONST);
-    g_data_int(wasm_data_pos);
+    g_data_int(pos);
     g_data_int(nb);
     g_data_buf(buf, nb);
-    wasm_data_pos += nb;
     ++nb_wasm_data;
 }
 
@@ -419,17 +419,19 @@ ST_FUNC void load(int r, SValue *sv)
 
 	/* load const into mem */
 	/* sv->c.i value if VT_INT */
-	if (((t.t & VT_BTYPE) == VT_INT)) {
-	    g_code(I32_CONST);
-	    g_code_int(sv->c.i);
-	    cur_function.nb_i32++;
 	    /* printf("need to store at %d\n", local_idx); */
-	} else if ((t.t & VT_BTYPE) == VT_LLONG) {
+	if ((t.t & VT_BTYPE) == VT_LLONG) {
 	    g_code(I64_CONST);
 	    g_code_int(sv->c.i);
 	    cur_function.nb_i64++;
 	} else {
-	    printf("can't load unknow constant %x\n", t.t);
+	    g_code(I32_CONST);
+	    if (sv->r & VT_SYM) {
+		g_code_int(elfsym(sv->sym)->st_value);
+	    } else {
+		g_code_int(sv->c.i);
+	    }
+	    cur_function.nb_i32++;
 	}
 	g_code(LOCAL_SET);
 	g_code_int(cur_function.locals_stack_len); // local index
