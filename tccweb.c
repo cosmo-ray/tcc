@@ -93,6 +93,13 @@ int wasm_output_file(TCCState *s1, const char *filename)
 		"\tconst membuf = new Uint8Array(mem.buffer);\n"
 		"\tconsole.log(membuf);\n"
 	    "},\n"
+	    "puts(ptr) {\n"
+		"\tlet mem = glob_wasm.instance.exports.memory;\n"
+		"\tconst membuf = new Uint8Array(mem.buffer);\n"
+		"\tlet end = ptr;\n"
+		"\twhile (membuf[end] !== 0) end++;\n"
+		"\tconsole.log(new TextDecoder().decode(membuf.subarray(ptr, end)));\n"
+	    "},\n"
 	    "memset(ptr, value, size) {\n"
 		"\tlet mem = glob_wasm.instance.exports.memory;\n"
 		"\tconst membuf = new Uint8Array(mem.buffer);\n"
@@ -149,6 +156,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
     function_section->sh_size = wasm_func_ind;
     global_section->sh_size = glob_ind;
     memory_section->sh_size = mem_ind;
+    data_section->sh_size = data_ind;
     TRY(fwrite(magic, sizeof magic, 1, fp) < 0);
     printf("wasm_type_cnt: %d - %p\n", wasm_type_cnt, type_section);
     for (int i = 0; i < type_section->sh_size; ++i) {
@@ -174,6 +182,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
     wasm_func_ind = 0;
     mem_ind = 0;
     nb_wasm_data = 0;
+    data_ind = 0;
     wasm_data_pos = 0x4000;
     ret = 0;
   out:

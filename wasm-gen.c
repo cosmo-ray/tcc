@@ -263,15 +263,21 @@ static void g_data(char c)
 
 static void g_data_buf(char *str, int l)
 {
+    printf("dt buf: ");
     for (int i = 0; i < l; ++i) {
 	g_data(str[i]);
+	printf("%x ", str[i]);
     }
+    printf("\n");
 }
 
 static void g_data_int(int i)
 {
     int sz;
+    if (data_ind + 10 > data_section->data_allocated)
+        section_realloc(data_section, data_ind + 10);
     int_to_wasm_int((char *)&data_section->data[data_ind], &sz, i);
+    printf("out int size %d\n", sz);
     data_ind += sz;
 }
 
@@ -387,11 +393,15 @@ void print_r_mask(uint32_t r, CType t)
 
 ST_FUNC void wasm_data_cpy(char *buf, int pos, int nb)
 {
-    printf("wasm data '%s' cpy at %d\n", buf, pos);
+    printf("wasm data '%s' cpy at %d %d\n", buf, pos, nb);
+    nb += 1;
+    g_data(0); /* data segment flag */
     g_data(I32_CONST);
     g_data_int(pos);
+    g_data(END);
     g_data_int(nb);
-    g_data_buf(buf, nb);
+    g_data_buf(buf, nb - 1);
+    g_data(0);
     ++nb_wasm_data;
 }
 
@@ -698,6 +708,8 @@ static void init_file(void)
     gimport_func(TOK_memset, WASM_INT_32, WASM_INT_32, WASM_INT_32, 0);
     external_helper_sym(TOK_show_mem);
     gimport_func(TOK_show_mem, 0);
+    external_helper_sym(TOK_puts);
+    gimport_func(TOK_puts, WASM_INT_32, 0);
 
     /* as wasm mem is limited, 4 GB is more than enough */
     g_glob(WASM_INT_32);

@@ -227,6 +227,7 @@
      DEF(TOK___floatundidf, "__floatundidf")
 # if defined TCC_TARGET_WASM
      DEF(TOK_show_mem, "show_mem")
+     DEF(TOK_puts, "puts")
 #  endif
 # ifndef TCC_ARM_VFP
      DEF(TOK___floatundixf, "__floatundixf")
