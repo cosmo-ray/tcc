@@ -570,21 +570,32 @@ ST_FUNC void gfunc_call(int nb_args)
 {
     int i, function_idx;
     Sym *s;
+    int extra_vargs = 0;
+    int all_args = nb_args;
 
-    printf("gfunc_call(%d)\n", nb_args);
     for(i = 0; i < nb_args; i++) {
-	printf("%d\n", nb_args - (i + 1));
-	load(0, &vtop[-(nb_args - (i + 1))]);
+	printf("%d\n", all_args - (i + 1));
+	load(0, &vtop[-(all_args - (i + 1))]);
     }
+
+    if (vtop[-nb_args].type.ref->f.func_type == FUNC_ELLIPSIS) {
+	    Sym *sym;
+	    int nb_fixed = 0;
+	    for (sym = vtop[-nb_args].type.ref->next; sym; sym = sym->next)
+		    nb_fixed++;
+	    printf("a func of %d args and %d non variadic with ...\n", nb_args, nb_fixed);
+	    extra_vargs = nb_args - nb_fixed;
+	    nb_args = nb_fixed;
+    }
+    printf("gfunc_call(%d - %p - %p)\n", nb_args, vtop, &vtop[-nb_args]);
     vtop -= nb_args;
-    for(i = 0; i < nb_args; i++) {
-	    g_code(LOCAL_GET);
-	    printf("load %d - %d\n", cur_function.locals_stack_len - (nb_args - i),
-		nb_args - i);
-	    g_code_int(cur_function.locals_stack_len - (nb_args - i)); // local index
-    }
+    vtop -= extra_vargs;
     // get function name: vtop[0].sym->v
     s = sym_find(vtop[0].sym->v);
+    /* now look if vtop is the same at gfunc_call begin,
+       otherwise we need to get this to prepar for elispe call, s elispe call is just 1 local, using stack for storage */
+    printf("vtop(%p)->type.ref->f.func_type: %x (NEW: %x, OLD: %x, ELLIPSIS %x)\n", vtop,
+	   vtop->type.ref->f.func_type, FUNC_NEW, FUNC_OLD, FUNC_ELLIPSIS);
     if (!s)
 	tcc_error("can't find function '%s'\n", get_tok_str(vtop[0].sym->v, NULL));
     else
@@ -598,6 +609,18 @@ ST_FUNC void gfunc_call(int nb_args)
     g_code_stack_op(I32_ADD, cur_func_stack_byte_size());
     g_code(GLOBAL_SET);
     g_code_int(0);
+
+
+    for(i = 0; i < nb_args; i++) {
+	    g_code(LOCAL_GET);
+	    printf("load %d - %d\n", cur_function.locals_stack_len - (all_args - i),
+		nb_args - i);
+	    g_code_int(cur_function.locals_stack_len - (all_args - i)); // local index
+    }
+
+    if (extra_vargs) {
+	    g_code_get_stack();
+    }
 
     g_code(CALL);
     if (function_idx < 0) {
@@ -710,6 +733,8 @@ static void init_file(void)
     gimport_func(TOK_show_mem, 0);
     external_helper_sym(TOK_puts);
     gimport_func(TOK_puts, WASM_INT_32, 0);
+    external_helper_sym(TOK_printf);
+    gimport_func(TOK_printf, WASM_INT_32, WASM_INT_32, 0);
 
     /* as wasm mem is limited, 4 GB is more than enough */
     g_glob(WASM_INT_32);
