@@ -572,13 +572,16 @@ ST_FUNC void gfunc_call(int nb_args)
     Sym *s;
     int extra_vargs = 0;
     int all_args = nb_args;
+    int func_type;
 
     for(i = 0; i < nb_args; i++) {
 	printf("%d\n", all_args - (i + 1));
 	load(0, &vtop[-(all_args - (i + 1))]);
     }
 
-    if (vtop[-nb_args].type.ref->f.func_type == FUNC_ELLIPSIS) {
+    func_type = vtop[-nb_args].type.ref->f.func_type;
+
+    if (func_type == FUNC_ELLIPSIS) {
 	    Sym *sym;
 	    int nb_fixed = 0;
 	    for (sym = vtop[-nb_args].type.ref->next; sym; sym = sym->next)
@@ -588,8 +591,8 @@ ST_FUNC void gfunc_call(int nb_args)
 	    nb_args = nb_fixed;
     }
     printf("gfunc_call(%d - %p - %p)\n", nb_args, vtop, &vtop[-nb_args]);
-    vtop -= nb_args;
-    vtop -= extra_vargs;
+    vtop -= all_args;
+
     // get function name: vtop[0].sym->v
     s = sym_find(vtop[0].sym->v);
     /* now look if vtop is the same at gfunc_call begin,
@@ -618,9 +621,18 @@ ST_FUNC void gfunc_call(int nb_args)
 	    g_code_int(cur_function.locals_stack_len - (all_args - i)); // local index
     }
 
-    if (extra_vargs) {
-	    g_code_get_stack();
+    for (i = 0; i < extra_vargs; ++i) {
+	    // store vtop[i - extra_vargs];
+	    g_code_stack_op(I32_ADD, i * 8);
+	    g_code(LOCAL_GET);
+	    g_code_int(cur_function.locals_stack_len - extra_vargs + i);
+	    g_code(I32_STORE);
+	    g_code_int(2); /* alignement */
+	    g_code_int(0);  /* offset */
     }
+
+    if (func_type == FUNC_ELLIPSIS)
+	    g_code_get_stack();
 
     g_code(CALL);
     if (function_idx < 0) {
