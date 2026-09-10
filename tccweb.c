@@ -84,64 +84,18 @@ int wasm_output_file(TCCState *s1, const char *filename)
     if (filename_l > 3 && !strcmp(&filename[filename_l - 3], ".js")) {
 	char js_p0[] = "const fs = require('fs');\n"
 	    "const buf = fs.readFileSync('./";
-	char js_p1[] =
-	    "');\n"
-	    "let glob_wasm = null;\n"
-	    "const env = {\n"
-	    "show_mem() {\n"
-		"\tlet mem = glob_wasm.instance.exports.memory;\n"
-		"\tconst membuf = new Uint8Array(mem.buffer);\n"
-		"\tconsole.log(membuf);\n"
-	    "},\n"
-	    "puts(ptr) {\n"
-		"\tlet mem = glob_wasm.instance.exports.memory;\n"
-		"\tconst membuf = new Uint8Array(mem.buffer);\n"
-		"\tlet end = ptr;\n"
-		"\twhile (membuf[end] !== 0) end++;\n"
-		"\tconsole.log(new TextDecoder().decode(membuf.subarray(ptr, end)));\n"
-	    "},\n"
-	    "printf(ptr, vargs_ptr) {\n"
-		"\tlet mem = glob_wasm.instance.exports.memory;\n"
-		"\tconst membuf = new Uint8Array(mem.buffer);\n"
-		"\tlet end = ptr;\n"
-		"\twhile (membuf[end] !== 0) end++;\n"
-		"\tconst fmt = new TextDecoder().decode(membuf.subarray(ptr, end));\n"
-		"\tconst i32 = new Int32Array(mem.buffer);\n"
-		"\tlet out = \"\";\n"
-		"\tfor (let j = 0, arg = 0; j < fmt.length; j++) {\n"
-		    "\t\tif (fmt[j] === '%' && j + 1 < fmt.length) {\n"
-			"\t\t\tconst c = fmt[++j];\n"
-			"\t\t\tif (c === '%') out += '%';\n"
-			"\t\t\telse if (c === 's') {\n"
-			    "\t\t\t\tconst sp = i32[(vargs_ptr + arg * 8) >> 2];\n"
-			    "\t\t\t\tlet e = sp; while (membuf[e] !== 0) e++;\n"
-			    "\t\t\t\tout += new TextDecoder().decode(membuf.subarray(sp, e));\n"
-			    "\t\t\t\targ++;\n"
-			"\t\t\t} else if (c === 'd' || c === 'i') {\n"
-			    "\t\t\t\tout += i32[(vargs_ptr + arg * 8) >> 2];\n"
-			    "\t\t\t\targ++;\n"
-			"\t\t\t} else out += '%' + c;\n"
-		    "\t\t} else out += fmt[j];\n"
-		"\t}\n"
-		"\tconsole.log(out);\n"
-		"\treturn 0;\n"
-	    "},\n"
-	    "memset(ptr, value, size) {\n"
-		"\tlet mem = glob_wasm.instance.exports.memory;\n"
-		"\tconst membuf = new Uint8Array(mem.buffer);\n"
-		"\tmembuf.fill(value & 0xff, ptr, ptr + size);\n"
-		"\treturn ptr;\n"
-	    "}\n"
-	    "};\n"
-	    "const lib = WebAssembly.instantiate(new Uint8Array(buf), { env }).\n"
-	    "then(res => {\n"
-	    "   glob_wasm = res\n"
-	    "	for (var i=1;i<=10;i++) {\n"
-	    "		let r = res.instance.exports.";
-	char js_p2[] ="(i, i+1)\n"
-	    "		console.log(\"main result: \"+i+\" = \"+r)\n"
-	    "	}\n"
-	    "});\n";
+	char js_p1[] = "');\n";
+	char js_file[8000];
+	int js_filelen;
+
+	sprintf(js_file, "%s/lib/main.js", s1->tcc_lib_path);
+	fd = open(js_file, O_RDONLY);
+	if (fd < 0) {
+	    tcc_error_noabort("could not read '%s'", js_file);
+	    return -1;
+	}
+	js_filelen = read(fd, js_file, 8000);
+	close(fd);
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
 	if (fd < 0 || (fp = fdopen(fd, "wb")) == NULL) {
 	    tcc_error_noabort("could not write '%s: %s'", filename,
@@ -154,8 +108,7 @@ int wasm_output_file(TCCState *s1, const char *filename)
 	fwrite(js_p0, sizeof js_p0 -1, 1, fp);
 	fwrite(wasm_file, filename_l + 2, 1, fp);
 	fwrite(js_p1, sizeof js_p1 -1, 1, fp);
-	fwrite("main", 4, 1, fp);
-	fwrite(js_p2, sizeof js_p2 -1, 1, fp);
+	fwrite(js_file, js_filelen, 1, fp);
     } else {
 	wasm_file = (char *)filename;
     }
