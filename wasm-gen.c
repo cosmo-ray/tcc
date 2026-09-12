@@ -166,6 +166,7 @@ static int wasm_func_idx;
 #define GLOBAL_STACK_END 1
 
 
+/* encode unsigned LEB128 (u32 fields: section sizes, counts, limits) */
 static void int_to_wasm_int(char *buf, int *sz, int i)
 {
     char cur;
@@ -181,6 +182,26 @@ static void int_to_wasm_int(char *buf, int *sz, int i)
 	goto again;
     }
     buf[*sz - 1] = cur;
+}
+
+/* encode signed LEB128 (i32.const/i64.const immediates) */
+static void int_to_wasm_sleb(char *buf, int *sz, int i)
+{
+    char cur;
+    int done;
+    *sz = 1;
+
+  again:
+    cur = i & 0x7f;
+    i >>= 7;
+    done = ((i == 0 && !(cur & 0x40)) || (i == -1 && (cur & 0x40)));
+    if (done) {
+	buf[*sz - 1] = cur;
+	return;
+    }
+    buf[*sz - 1] = cur | 0x80;
+    *sz += 1;
+    goto again;
 }
 
 static int cur_func_stack_byte_size()
@@ -281,6 +302,16 @@ static void g_data_int(int i)
     data_ind += sz;
 }
 
+static void g_data_sleb(int i)
+{
+    int sz;
+    if (data_ind + 10 > data_section->data_allocated)
+        section_realloc(data_section, data_ind + 10);
+    int_to_wasm_sleb((char *)&data_section->data[data_ind], &sz, i);
+    printf("out sleb size %d\n", sz);
+    data_ind += sz;
+}
+
 static void g_import(char c)
 {
     int ind1;
@@ -304,7 +335,26 @@ static void g_import_str(const char *str)
  * a number literal in the code, take only the place it require
  * so even if it's a VT_INT, it still might need to be shrink
  */
-static void g_code_int(int i)
+/* signed LEB128: values of i32.const/i64.const */
+static void g_code_sleb(int i)
+{
+    char cur;
+    int done;
+
+  again:
+    cur = i & 0x7f;
+    i >>= 7;
+    done = ((i == 0 && !(cur & 0x40)) || (i == -1 && (cur & 0x40)));
+    if (done) {
+	g_code(cur);
+	return;
+    }
+    g_code(cur | 0x80);
+    goto again;
+}
+
+/* unsigned LEB128: local/global/function indices, memarg align/offset, depth */
+static void g_code_uleb(int i)
 {
     char cur;
 
@@ -349,14 +399,14 @@ static void g_mem_int(int i)
 static void g_code_get_stack()
 {
     g_code(GLOBAL_GET);
-    g_code_int(0);
+    g_code_uleb(0);
 }
 
 static void g_code_stack_op(int op, int num)
 {
     g_code_get_stack();
     g_code(I32_CONST);
-    g_code_int(num);
+    g_code_sleb(num);
     g_code(op);
 }
 
@@ -397,7 +447,7 @@ ST_FUNC void wasm_data_cpy(char *buf, int pos, int nb)
     nb += 1;
     g_data(0); /* data segment flag */
     g_data(I32_CONST);
-    g_data_int(pos);
+    g_data_sleb(pos);
     g_data(END);
     g_data_int(nb);
     g_data_buf(buf, nb - 1);
@@ -432,19 +482,19 @@ ST_FUNC void load(int r, SValue *sv)
 	    /* printf("need to store at %d\n", local_idx); */
 	if ((t.t & VT_BTYPE) == VT_LLONG) {
 	    g_code(I64_CONST);
-	    g_code_int(sv->c.i);
+	    g_code_sleb(sv->c.i);
 	    cur_function.nb_i64++;
 	} else {
 	    g_code(I32_CONST);
 	    if (sv->r & VT_SYM) {
-		g_code_int(elfsym(sv->sym)->st_value);
+		g_code_sleb(elfsym(sv->sym)->st_value);
 	    } else {
-		g_code_int(sv->c.i);
+		g_code_sleb(sv->c.i);
 	    }
 	    cur_function.nb_i32++;
 	}
 	g_code(LOCAL_SET);
-	g_code_int(cur_function.locals_stack_len); // local index
+	g_code_uleb(cur_function.locals_stack_len); // local index
 	cur_function.locals_stack_len++;
 
     } else if (or == VT_LOCAL) {
@@ -456,21 +506,21 @@ ST_FUNC void load(int r, SValue *sv)
 	/* g_code(I32_CONST); */
 	if ((int64_t)sv->c.i < 0) {
 	    g_code(I32_CONST);
-	    g_code_int(cur_function.nb_params * 8 - sv->c.i); // local index
+	    g_code_sleb(cur_function.nb_params * 8 - sv->c.i); // local index
 	    g_code(I32_ADD);
 	} else {
 	    g_code(I32_CONST);
-	    g_code_int(sv->c.i * 8); // local index
+	    g_code_sleb(sv->c.i * 8); // local index
 	    g_code(I32_ADD);
 	}
 	if (!is_ptr) {
 	    g_code(I32_LOAD);
-	    g_code_int(2); /* alignement */
-	    g_code_int(0);  /* offset */
+g_code_uleb(2); /* alignement */
+    g_code_uleb(0);  /* offset */
 	}
 	/* g_code(LOCAL_GET); // local set */
 	g_code(LOCAL_SET);
-	g_code_int(cur_function.locals_stack_len); // local index
+	g_code_uleb(cur_function.locals_stack_len); // local index
 	cur_function.nb_i32++;
 	cur_function.locals_stack_len++;
 
@@ -478,9 +528,9 @@ ST_FUNC void load(int r, SValue *sv)
 	printf("\n%d ", cur_function.cmp_i32_loc);
 	printf("CMP !!!!!\n");
 	g_code(LOCAL_GET);
-	g_code_int(cur_function.cmp_i32_loc);
+	g_code_uleb(cur_function.cmp_i32_loc);
 	g_code(LOCAL_SET);
-	g_code_int(cur_function.locals_stack_len); // local index
+	g_code_uleb(cur_function.locals_stack_len); // local index
 	cur_function.nb_i32++;
 	cur_function.locals_stack_len++;
     } else if (sv->r == VT_LVAL) {
@@ -530,11 +580,11 @@ ST_FUNC void store(int r, SValue *sv)
 
 	    /* get value */
 	    g_code(LOCAL_GET);
-	    g_code_int(cur_function.locals_stack_len - 1); // local index
+	    g_code_uleb(cur_function.locals_stack_len - 1); // local index
 
 	    g_code(I32_STORE);
-	    g_code_int(2); /* alignement */
-	    g_code_int(0);  /* offset */
+g_code_uleb(2); /* alignement */
+    g_code_uleb(0);  /* offset */
 	} else if ((t.t & VT_BTYPE) == VT_PTR) {
 	    printf("handle vt ptr");
 	    goto store_int;
@@ -611,24 +661,24 @@ ST_FUNC void gfunc_call(int nb_args)
     // I need to global_set for stack index
     g_code_stack_op(I32_ADD, cur_func_stack_byte_size());
     g_code(GLOBAL_SET);
-    g_code_int(0);
+    g_code_uleb(0);
 
 
     for(i = 0; i < nb_args; i++) {
 	    g_code(LOCAL_GET);
 	    printf("load %d - %d\n", cur_function.locals_stack_len - (all_args - i),
 		nb_args - i);
-	    g_code_int(cur_function.locals_stack_len - (all_args - i)); // local index
+	    g_code_uleb(cur_function.locals_stack_len - (all_args - i)); // local index
     }
 
     for (i = 0; i < extra_vargs; ++i) {
 	    // store vtop[i - extra_vargs];
 	    g_code_stack_op(I32_ADD, i * 8);
 	    g_code(LOCAL_GET);
-	    g_code_int(cur_function.locals_stack_len - extra_vargs + i);
+	    g_code_uleb(cur_function.locals_stack_len - extra_vargs + i);
 	    g_code(I32_STORE);
-	    g_code_int(2); /* alignement */
-	    g_code_int(0);  /* offset */
+g_code_uleb(2); /* alignement */
+    g_code_uleb(0);  /* offset */
     }
 
     if (func_type == FUNC_ELLIPSIS)
@@ -637,35 +687,35 @@ ST_FUNC void gfunc_call(int nb_args)
     g_code(CALL);
     if (function_idx < 0) {
 	    printf("push: %d\n", -function_idx - 2);
-	    g_code_int(-function_idx - 2);
+	    g_code_uleb(-function_idx - 2);
     } else {
-	    g_code_int(function_idx + nb_import);
+	    g_code_uleb(function_idx + nb_import);
     }
 
     g_code_stack_op(I32_SUB, cur_func_stack_byte_size());
     g_code(GLOBAL_SET);
-    g_code_int(0);
+    g_code_uleb(0);
 
     g_code(LOCAL_SET);
-    g_code_int(cur_function.locals_stack_len); // local index
+    g_code_uleb(cur_function.locals_stack_len); // local index
     cur_function.nb_i32++;
     cur_function.locals_stack_len++;
 
 
 /* // I need to reset global 0 to last stack */
     /* g_code(LOCAL_SET); */
-    /* g_code_int(0); // local index */
+    /* g_code_uleb(0); // local index */
     /* g_code(GLOBAL_GET); */
-    /* g_code_int(0); */
+    /* g_code_uleb(0); */
     /* g_code(I32_CONST); */
-    /* g_code_int(0); */
+    /* g_code_uleb(0); */
     /* g_code(I32_ADD); */
     /* g_code(LOCAL_GET); */
-    /* g_code_int(0); // local index */
+    /* g_code_uleb(0); // local index */
 
     /* g_code(I32_STORE); */
     /* g_code_int(2); /\* alignement *\/ */
-    /* g_code_int(0);  /\* offset *\/ */
+    /* g_code_uleb(0);  /\* offset *\/ */
     vtop--;
 }
 
@@ -899,10 +949,10 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 
 	g_code_get_stack();
 	g_code(I32_CONST);
-	g_code_int(i * 8);
+	g_code_sleb(i * 8);
 	g_code(I32_ADD);
 	g_code(LOCAL_GET);
-	g_code_int(i++);
+	g_code_uleb(i++);
 	switch (bt) {
 	case VT_INT:
 	    g_code(I32_STORE);
@@ -917,8 +967,8 @@ ST_FUNC void gfunc_prolog(Sym *func_sym)
 	    g_code(I64_STORE);
 	    break;
 	}
-	g_code_int(2); /* alignement */
-	g_code_int(0);  /* offset */
+	g_code_uleb(2); /* alignement */
+	g_code_uleb(0);  /* offset */
     }
     printf("========= gfunc_prolog %s(func_sym) [fc: %d, nargs: %d] =======\n", get_tok_str(func_sym->v, NULL), func_call, nb_args);
 }
@@ -957,7 +1007,7 @@ ST_FUNC void gfunc_epilog(void)
     printf("^^^^ gfunc_epilog() ^^^^^\n");
     if (cur_function.func_ret != WASM_NONE) {
 	g_code(LOCAL_GET);
-	g_code_int(cur_function.locals_stack_len - 1);
+	g_code_uleb(cur_function.locals_stack_len - 1);
     }
     g_code(END);
 
@@ -1086,9 +1136,9 @@ ST_FUNC void gen_opi(int op)
 	gv2(RC_INT, RC_INT);
     }
     g_code(LOCAL_GET);
-    g_code_int(cur_function.locals_stack_len - 2); // local index
+    g_code_uleb(cur_function.locals_stack_len - 2); // local index
     g_code(LOCAL_GET);
-    g_code_int(cur_function.locals_stack_len - 1); // local index
+    g_code_uleb(cur_function.locals_stack_len - 1); // local index
     /* printf("OP: '%c'\n", op); */
     switch (op) {
     case '+':
@@ -1141,7 +1191,7 @@ ST_FUNC void gen_opi(int op)
 	vset_VT_CMP(op);
     }
     g_code(LOCAL_SET); // local set
-    g_code_int(cur_function.locals_stack_len);
+    g_code_uleb(cur_function.locals_stack_len);
     if (op >= TOK_ULT && op <= TOK_GT) {
 	cur_function.cmp_i32_loc = cur_function.locals_stack_len;
     }
